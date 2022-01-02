@@ -1,6 +1,7 @@
 use gtk::prelude::*;
 use gtk::{ Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, WindowPosition };
 use gtk::gdk_pixbuf::{ Pixbuf, InterpType };
+use std::process::{ Command };
 
 // Configuration module
 mod config;
@@ -51,12 +52,12 @@ fn show_application_window(configuration:config::Configuration) {
     icons_box.add(&icons_row);
     for browser in configuration.browsers_list.clone() {
       if icon_counter % icons_per_row == 0 {
-        button_with_image(&browser, &icons_row, button_margin_last);
+        button_with_image(&app, &browser, &icons_row, button_margin_last);
         icons_row = Box::new(Orientation::Horizontal, 0);
         icons_box.add(&icons_row);
         icon_spacing_top = 0;
       } else {
-        button_with_image(&browser, &icons_row, button_margin_default);
+        button_with_image(&app, &browser, &icons_row, button_margin_default);
       }
       icon_counter = icon_counter + 1;
     }
@@ -77,22 +78,20 @@ fn show_application_window(configuration:config::Configuration) {
   application.run();
 }
 
-fn button_with_image(browser_settings:&config::BrowserSettings, box_object:&Box, margins:ButtonMargins) {
+fn button_with_image(application:&Application, browser_settings:&config::BrowserSettings, box_object:&Box, margins:ButtonMargins) {
+  let browser_settings_clone:config::BrowserSettings;
+  let application_clone:Application;
   let image:Image;
   let button:Button;
   let button_box:Box;
   let mut image_pixbuf:Pixbuf;
 
-  let bs = config::BrowserSettings {
-    title: (&browser_settings.title).to_string(),
-    executable: String::from(""),
-    arguments: String::from(""),
-    icon: (&browser_settings.icon).to_string()
-  };
-  let b = bs.clone();
+  // Clone application and browser_settings so we can pass them to 
+  // the closure in button connect_clicked
+  application_clone = application.clone();
+  browser_settings_clone = browser_settings.clone();
 
   // Create a button with image and label, assigning a function for when clicked
-
   image_pixbuf = Pixbuf::from_file(browser_settings.icon.clone()).unwrap();
   if image_pixbuf.width() != 32 && image_pixbuf.height() != 32 {
     image_pixbuf = image_pixbuf.scale_simple(32, 32, InterpType::Bilinear ).unwrap();
@@ -104,7 +103,7 @@ fn button_with_image(browser_settings:&config::BrowserSettings, box_object:&Box,
     .image(&image).always_show_image(true).image_position(PositionType::Left)
     .label(&browser_settings.title)
     .build();
-  button.connect_clicked(move |_| {button_clicked(&b)});
+  button.connect_clicked(move |_| {button_clicked(&application_clone, &browser_settings_clone)});
 
   //
   button_box = Box::builder()
@@ -121,8 +120,13 @@ fn button_with_image(browser_settings:&config::BrowserSettings, box_object:&Box,
   box_object.add(&button_box);
 }
 
-fn button_clicked<'a>(browser_settigns:&'a config::BrowserSettings ) {
-  eprintln!("{:?}", &browser_settigns.icon);
+fn button_clicked<'a>(application:&Application, browser_settings:&'a config::BrowserSettings ) {
+  eprintln!("{:?}", &browser_settings.executable);
+  Command::new(&browser_settings.executable)
+    .arg(&browser_settings.arguments)
+    .spawn()
+    .expect("failed to execute process");
+  application.quit();
 }
 
 fn diplay_host_info() -> Box {
