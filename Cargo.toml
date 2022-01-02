@@ -1,0 +1,18 @@
+[package]
+name = "browsewith"
+description = "Select what browser to use when opening links from applications."
+version = "0.1.0"
+authors = ["Luis Tavares"]
+edition = "2018"
+license = "MIT"
+
+
+[dependencies]
+glib = { git = "https://github.com/gtk-rs/gtk-rs-core.git", package = "glib" }
+dirs = "1.0.4"
+serde = { version = "1.0.104", features = ["derive"] }
+serde_json = "1.0.48"
+
+[dependencies.gtk]
+version = "0.14.3"
+features = ["v3_22_29"]
