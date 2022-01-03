@@ -3,14 +3,10 @@ use dirs;
 use std::path::{ Path, PathBuf };
 
 use std::fs;
-use std::fs::{ File, Metadata };
-use std::io::{ BufReader, BufRead, Read, BufWriter, Write, Error };
+use std::fs::{ File };
+use std::io::{ BufReader, BufWriter };
 
 use serde::{Deserialize, Serialize};
-use serde_json::Result;
-
-#[cfg(target_os = "linux")]
-use std::os::unix::fs::{ PermissionsExt, MetadataExt };
 
 #[derive(Serialize, Deserialize)]
 pub struct Settings {
@@ -68,7 +64,9 @@ pub fn get_configuration() -> Configuration {
   // Create configuration directory and file if required
   if !config_directory_path.is_dir() {
     println!("Configuration directory not found");
-    fs::create_dir(config_directory_path);
+    match fs::create_dir(config_directory_path) {
+      e => println!("{:?}", e)
+    };
   }
   if !config_file_path.is_file() {
     println!("Configuration file not found");
@@ -195,14 +193,12 @@ fn save_configuration(file_path:&Path, data:&Configuration) {
 
   file_handle = File::create(file_path).unwrap();
   writer = BufWriter::new(file_handle);
-  serde_json::to_writer_pretty(writer, &data);
+  match serde_json::to_writer_pretty(writer, &data) {
+    e => println!("{:?}", e)
+  };
 }
 
 fn is_file_executable(path:&Path) -> bool {
-  let file:File;
-  let file_mode:u32;
-  let file_metadata:&MetadataExt;
-
   if ! path.exists() { return false; }
 
   if cfg!(unix) {

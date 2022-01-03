@@ -34,7 +34,7 @@ fn show_application_window(configuration:config::Configuration) {
     let mut icon_counter:i32 = 1;
     let icons_per_row:i32 = configuration.settings.icons_per_row;
     let icon_spacing:i32 = configuration.settings.icon_spacing;
-    let mut icon_spacing_top:i32 = configuration.settings.icon_spacing;
+    let icon_spacing_top:i32 = configuration.settings.icon_spacing;
 
     let button_margin_default:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing_top, right: 0, bottom: icon_spacing };
     let button_margin_last:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing, right: icon_spacing, bottom: icon_spacing };
@@ -55,7 +55,6 @@ fn show_application_window(configuration:config::Configuration) {
         button_with_image(&app, &browser, &icons_row, button_margin_last);
         icons_row = Box::new(Orientation::Horizontal, 0);
         icons_box.add(&icons_row);
-        icon_spacing_top = 0;
       } else {
         button_with_image(&app, &browser, &icons_row, button_margin_default);
       }
