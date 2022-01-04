@@ -1,10 +1,16 @@
 use gtk::prelude::*;
 use gtk::{ Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, WindowPosition };
 use gtk::gdk_pixbuf::{ Pixbuf, InterpType };
+use gtk::gio::{ ApplicationFlags };
+
 use std::process::{ Command };
+use std::cell::{ RefCell };
+
+use std::ffi::OsString;
 
 // Configuration module
 mod config;
+mod webclient;
 
 #[derive(Clone, Copy)]
 struct ButtonMargins {
@@ -14,18 +20,54 @@ struct ButtonMargins {
   bottom: i32
 }
 
+thread_local!(
+  static URL:RefCell<String> = RefCell::new(String::from(""));
+  static ICON_SPACING:RefCell<i32> = RefCell::new(0);
+);
+
 fn main() {
   let configuration:config::Configuration;
 
+  // Read configuration and store settings in 'thread_local'
   configuration = config::get_configuration();
+  URL.with(|v| { *v.borrow_mut() = configuration.settings.homepage.clone(); });
+  ICON_SPACING.with(|v| { *v.borrow_mut() = configuration.settings.icon_spacing.clone(); });
+
   show_application_window(configuration);
 }
 
 fn show_application_window(configuration:config::Configuration) {
   let application = Application::builder()
   .application_id("com.sheep.browsewith")
+  .flags(ApplicationFlags::HANDLES_COMMAND_LINE)
   .build();
 
+  // Application ::command-line signal handler
+  application.connect_command_line( move |app, command_line_arguments| {
+    let args:Vec<OsString>;
+    let url:String;
+
+    // Check if the argument is a valid URL and stores it for later
+    args = command_line_arguments.arguments();
+    if args.len() == 2 {
+      url = args[1].to_str().unwrap().to_string();
+      println!("{}", url);
+      if webclient::validate_url(&url) {
+        URL.with( |v| { *v.borrow_mut() = url });
+      } else {
+        println!("Invalid URL");
+        app.quit();
+      }
+    } else if args.len() > 2 {
+      println!("This application takes only one argument, the URL");
+      app.quit();
+    }
+
+    app.activate();
+    return 0;
+  });
+
+  // Application ::active signal handler
   application.connect_activate(move |app| {
     let window_box:Box = Box::new(Orientation::Vertical, 0);
     let icons_box:Box = Box::new(Orientation::Vertical, 0);
@@ -36,8 +78,8 @@ fn show_application_window(configuration:config::Configuration) {
     let icon_spacing:i32 = configuration.settings.icon_spacing;
     let icon_spacing_top:i32 = configuration.settings.icon_spacing;
 
-    let button_margin_default:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing_top, right: 0, bottom: icon_spacing };
-    let button_margin_last:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing, right: icon_spacing, bottom: icon_spacing };
+    let button_margin_default:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing_top, right: 0, bottom: 0 };
+    let button_margin_last:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing, right: icon_spacing, bottom: 0 };
 
     let window = ApplicationWindow::builder()
       .application(app)
@@ -96,33 +138,27 @@ fn button_with_image(application:&Application, browser_settings:&config::Browser
     image_pixbuf = image_pixbuf.scale_simple(32, 32, InterpType::Bilinear ).unwrap();
   }
   image = Image::from_pixbuf(Some(&image_pixbuf));
-
   button = Button::builder()
     .width_request(180).height_request(60)
     .image(&image).always_show_image(true).image_position(PositionType::Left)
-    .label(&browser_settings.title)
-    .build();
-  button.connect_clicked(move |_| {button_clicked(&application_clone, &browser_settings_clone)});
-
-  //
-  button_box = Box::builder()
-    .orientation(Orientation::Horizontal)
-    .spacing(0)
+    .label(&browser_settings.title)  
     .margin_start(margins.left)
     .margin_top(margins.top)
     .margin_end(margins.right)
     .margin_bottom(margins.bottom)
     .build();
-  button_box.add(&button);
+  button.connect_clicked(move |_| {button_clicked(&application_clone, &browser_settings_clone)});
 
   // Add to the main window
-  box_object.add(&button_box);
+  box_object.add(&button);
 }
 
 fn button_clicked<'a>(application:&Application, browser_settings:&'a config::BrowserSettings ) {
-  eprintln!("{:?}", &browser_settings.executable);
+  let mut url:String = String::from("");
+  URL.with(|v| {url = v.borrow().to_string();});
   Command::new(&browser_settings.executable)
     .arg(&browser_settings.arguments)
+    .arg(url)
     .spawn()
     .expect("failed to execute process");
   application.quit();
@@ -131,26 +167,36 @@ fn button_clicked<'a>(application:&Application, browser_settings:&'a config::Bro
 fn diplay_host_info() -> Box {
   let box_object:Box;
   let label_url:Label;
-  let label_page_title:Label;
-  let label_ssl_status:Label;
-  let label_response:Label;
+  // let label_page_title:Label;
+  // let label_ssl_status:Label;
+  // let label_response:Label;
+  let mut icon_spacing:i32 = 0;
+  let mut url:String = String::new();
 
-  label_url = Label::builder().label("URL:").halign(Align::Start).build();
-  label_page_title = Label::builder().label("Page title:").halign(Align::Start).build();
-  label_ssl_status = Label::builder().label("SSL Statue:").halign(Align::Start).build();
-  label_response = Label::builder().label("Response:").halign(Align::Start).build();
+  // Get variables stored in 'thread_local'
+  ICON_SPACING.with(|v| {icon_spacing = *v.borrow();});
+  URL.with(|v| {url = v.borrow().to_string();});
+  url = format!("Url: {}", url);
 
+  // Create the Label objects
+  label_url = Label::builder().label(&url).halign(Align::Start).build();
+  // label_page_title = Label::builder().label("Page title:").halign(Align::Start).build();
+  // label_ssl_status = Label::builder().label("SSL Statue:").halign(Align::Start).build();
+  // label_response = Label::builder().label("Response:").halign(Align::Start).build();
+
+  // Create a Box and add all the labels inside
   box_object = Box::builder()
     .orientation(Orientation::Vertical)
     .spacing(0)
-    .margin_start(5)
-    .margin_bottom(5)
+    .margin_top(icon_spacing)
+    .margin_start(icon_spacing)
+    .margin_bottom(icon_spacing)
     .halign(Align::Start)
     .build();
   box_object.add(&label_url);
-  box_object.add(&label_page_title);
-  box_object.add(&label_ssl_status);
-  box_object.add(&label_response);
+  // box_object.add(&label_page_title);
+  // box_object.add(&label_ssl_status);
+  // box_object.add(&label_response);
 
   return box_object;
 }
