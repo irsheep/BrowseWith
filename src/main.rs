@@ -1,5 +1,5 @@
 use gtk::prelude::*;
-use gtk::{ Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, WindowPosition };
+use gtk::{ HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, WindowPosition };
 use gtk::gdk_pixbuf::{ Pixbuf, InterpType };
 use gtk::gio::{ ApplicationFlags };
 
@@ -51,7 +51,6 @@ fn show_application_window(configuration:config::Configuration) {
     args = command_line_arguments.arguments();
     if args.len() == 2 {
       url = args[1].to_str().unwrap().to_string();
-      println!("{}", url);
       if webclient::validate_url(&url) {
         URL.with( |v| { *v.borrow_mut() = url });
       } else {
@@ -69,6 +68,7 @@ fn show_application_window(configuration:config::Configuration) {
 
   // Application ::active signal handler
   application.connect_activate(move |app| {
+    let header_bar:HeaderBar;
     let window_box:Box = Box::new(Orientation::Vertical, 0);
     let icons_box:Box = Box::new(Orientation::Vertical, 0);
     let hostinfo_box:Box;
@@ -110,6 +110,18 @@ fn show_application_window(configuration:config::Configuration) {
       window_box.add(&hostinfo_box);
     }
 
+    // Build a title bar
+    header_bar = HeaderBar::builder()
+      .title("BrowseWith")
+      .decoration_layout("menu:close")
+      .show_close_button(true)
+      .build();
+
+    // Traits from GtkWindowExt
+    window.set_keep_above(true);
+    window.set_resizable(false);
+    window.set_titlebar(&header_bar);
+
     // Display main windows with all the components
     window.add(&window_box);
     window.show_all();
@@ -124,7 +136,6 @@ fn button_with_image(application:&Application, browser_settings:&config::Browser
   let application_clone:Application;
   let image:Image;
   let button:Button;
-  let button_box:Box;
   let mut image_pixbuf:Pixbuf;
 
   // Clone application and browser_settings so we can pass them to 

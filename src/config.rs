@@ -33,7 +33,6 @@ pub struct Configuration {
 
 pub fn get_configuration() -> Configuration {
   let configuration:Configuration;
-  let configuration_root_directory:String;
   let home_dir_path:Option<PathBuf>;
   let mut config_directory_buf:PathBuf;
   let mut config_file_buf:PathBuf;
@@ -57,9 +56,6 @@ pub fn get_configuration() -> Configuration {
   // Transform the PathBuf objects to Path, so we can do directory/file checks and other operations
   config_directory_path = config_directory_buf.as_path();
   config_file_path = config_file_buf.as_path();
-
-  configuration_root_directory = format!("config_directory_buf: {:?}\nconfig_file_buf: {:?}\nconfig_directory_path: {:?}", config_directory_buf, config_file_buf, config_directory_path );
-  println!("{}",configuration_root_directory);
 
   // Create configuration directory and file if required
   if !config_directory_path.is_dir() {
@@ -154,7 +150,6 @@ fn get_browser_list() -> Vec<BrowserSettings> {
         for icon in well_known_icon {
           icon_buf = Path::new(icon).join(&browser.icon);
           icon_path = icon_buf.as_path();
-          println!("icon path {:?}\t{}", icon_path, icon);
           if icon_path.exists() {
             match icon_path.to_str() {
               None => browsers_settings.icon = "".to_string(),
@@ -183,7 +178,6 @@ fn load_configuration(file_path:&Path) -> Configuration {
   file_handle = File::open(file_path).unwrap();
   reader = BufReader::new(file_handle);
   configuration = serde_json::from_reader(reader).unwrap();
-  println!("Configuration loaded");
   return configuration;
 }
 
