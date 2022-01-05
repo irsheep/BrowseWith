@@ -2,10 +2,13 @@ use gtk::prelude::*;
 use gtk::{ HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, WindowPosition };
 use gtk::gdk_pixbuf::{ Pixbuf, InterpType };
 use gtk::gio::{ ApplicationFlags };
+use gtk::glib::{ Bytes };
 
+use std::{ include_bytes };
 use std::process::{ Command };
 use std::cell::{ RefCell };
-
+use std::path::{ Path, PathBuf };
+use std::fs::{ write };
 use std::ffi::OsString;
 
 // Configuration module
@@ -120,7 +123,9 @@ fn show_application_window(configuration:config::Configuration) {
     // Traits from GtkWindowExt
     window.set_keep_above(true);
     window.set_resizable(false);
-    window.set_titlebar(&header_bar);
+    window.set_titlebar(Some(&header_bar));
+
+    load_icon();
 
     // Display main windows with all the components
     window.add(&window_box);
@@ -210,4 +215,34 @@ fn diplay_host_info() -> Box {
   // box_object.add(&label_response);
 
   return box_object;
+}
+
+fn load_icon() {
+  let mut home_dir_buf:PathBuf;
+  let icon_file_path:&Path;
+  let icon_file:Pixbuf;
+  let icon_raw:&[u8];
+  let icon_bytes:Bytes;
+
+  // Load the icon file as '[u8]' at compile time
+  icon_raw = include_bytes!("../resources/browsewith.ico");
+  icon_bytes = Bytes::from(&icon_raw[..]);
+
+  // Create the icon file in the configuration directory, if it doesn't exist
+  home_dir_buf = dirs::home_dir().unwrap();
+  home_dir_buf.push(".browsewith/browsewith.ico");
+  icon_file_path = home_dir_buf.as_path();
+  if !icon_file_path.is_file() {
+    match write(icon_file_path, icon_bytes) {
+      Ok(..) => {},
+      Err(..) => println!("Failed to create icon file")
+    }
+  }
+  
+  // Confirm that the icon was successfully created before loading
+  if icon_file_path.is_file() {
+    // Assign the icon to the main window
+    icon_file = Pixbuf::from_file(icon_file_path).unwrap();
+    gtk::Window::set_default_icon(&icon_file);
+  }
 }
