@@ -5,7 +5,7 @@ use gtk::gio::{ ApplicationFlags };
 use gtk::glib::{ Bytes };
 
 use std::{ include_bytes };
-use std::process::{ Command };
+use std::process::{ Command, Stdio };
 use std::cell::{ RefCell };
 use std::path::{ Path, PathBuf };
 use std::fs::{ write };
@@ -175,6 +175,8 @@ fn button_clicked<'a>(application:&Application, browser_settings:&'a config::Bro
   Command::new(&browser_settings.executable)
     .arg(&browser_settings.arguments)
     .arg(url)
+    .stderr(Stdio::null())
+    .stdout(Stdio::null())
     .spawn()
     .expect("failed to execute process");
   application.quit();
