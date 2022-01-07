@@ -7,6 +7,7 @@ pub fn modify_default_list(file_path:&Path) {
   let defaults_list_data:String;
   let mut lines:Lines;
   let mut defaults_list_iterator:Iter<&str>;
+  let mut defaults_list_changed:bool = false;
   
   // Data to be written to 'defaults.file'
   let mut new_data:String;
@@ -33,8 +34,13 @@ pub fn modify_default_list(file_path:&Path) {
         loop {
           match defaults_list_iterator.next() {
             Some(key) => {
-              if line.contains(key) && !line.contains(desktop_filename) {
-                new_data_line = format!("{}{};{}", key, desktop_filename, line.strip_prefix(key).unwrap() ).as_str().to_owned();
+              if line.contains(key) && !line.contains(&format!("{}{}", key, desktop_filename).as_str().to_owned()) {
+                new_data_line = format!("{}{};{}",
+                  key,
+                  desktop_filename,
+                  line.strip_prefix(key).unwrap().replace(desktop_filename, "").replace(";;", ";")
+                ).as_str().to_owned();
+                defaults_list_changed = true;
               }    
             },
             None => {
@@ -50,8 +56,10 @@ pub fn modify_default_list(file_path:&Path) {
     }
   }
 
-  match write(file_path, new_data.as_bytes()) {
-    Ok(..) => {},
-    Err(..) => {}
+  if defaults_list_changed {
+    match write(file_path, new_data.as_bytes()) {
+      Ok(..) => {},
+      Err(..) => {}
+    }
   }
 }

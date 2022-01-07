@@ -188,7 +188,8 @@ fn save_configuration(file_path:&Path, data:&Configuration) {
   file_handle = File::create(file_path).unwrap();
   writer = BufWriter::new(file_handle);
   match serde_json::to_writer_pretty(writer, &data) {
-    e => println!("{:?}", e)
+    Ok(..) => { println!("Created {}", file_path.to_str().unwrap()); },
+    Err(..) => { println!("Failed to create {}", file_path.to_str().unwrap()); }
   };
 }
 
