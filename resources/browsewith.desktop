@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Name=BrowseWith
+GenericName=WebBrowser
+Comment=Select browser to open links
+
+MimeType=x-scheme-handler/http;x-scheme-handler/https;
+
+Exec=/usr/bin/browsewith %U
+Terminal=false
+TryExec=browsewith
+Icon=/usr/share/icons/hicolor/scalable/apps/browsewith.ico
+Type=Application
+Categories=Utility;WebBrowser;

@@ -1,0 +1,4 @@
+[Default Applications]
+text/html=browsewith.desktop
+x-scheme-handler/http=browsewith.desktop
+x-scheme-handler/https=browsewith.desktop

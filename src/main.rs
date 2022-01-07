@@ -5,15 +5,15 @@ use gtk::gio::{ ApplicationFlags };
 use gtk::glib::{ Bytes };
 
 use std::{ include_bytes };
-use std::process::{ Command, Stdio };
+use std::process::{ Command, Stdio, exit };
 use std::cell::{ RefCell };
 use std::path::{ Path, PathBuf };
 use std::fs::{ write };
-use std::ffi::OsString;
 
 // Configuration module
 mod config;
 mod webclient;
+mod setup;
 
 #[derive(Clone, Copy)]
 struct ButtonMargins {
@@ -30,13 +30,69 @@ thread_local!(
 
 fn main() {
   let configuration:config::Configuration;
+  let mut error_code:i32;
+  let argument_list:Vec<String>;
+  let argument_count:usize;
+  let argument_name:String;
+  let argument_value:String;
 
   // Read configuration and store settings in 'thread_local'
   configuration = config::get_configuration();
   URL.with(|v| { *v.borrow_mut() = configuration.settings.homepage.clone(); });
   ICON_SPACING.with(|v| { *v.borrow_mut() = configuration.settings.icon_spacing.clone(); });
 
-  show_application_window(configuration);
+  argument_list = std::env::args().collect();
+  argument_count = argument_list.len();
+  error_code = -1;
+
+  if argument_count > 1 {
+    argument_name = argument_list[1].clone();
+    if argument_count == 3 {
+      argument_value = argument_list[2].clone();
+    } else {
+      argument_value = "".to_string();
+    }
+
+    if argument_count == 3 && argument_name == "--set-default" && argument_value != "" {
+      match argument_value.as_str() {
+        "system" => {
+          if setup::is_privileged_user() {
+            setup::set_default_browser(true);
+            error_code = 0;
+          } else {
+            println!("This application required elevated privileges to change the default browser systemwide.");
+            error_code = 1;
+          }
+        },
+        "user" => {
+          setup::set_default_browser(false);
+          error_code = 0;
+        },
+        _ => {
+          println!("Invalid option for --set-default ");
+          error_code = 2;
+        }
+      }
+    } else if argument_count == 2 {
+      if webclient::validate_url(&argument_name) {
+        URL.with( |v| { *v.borrow_mut() = argument_name });
+        error_code = -1;
+      } else {
+        println!("Invalid URL");
+        error_code = 3;
+      }
+    } else {
+      // FIX: I think that this code is unreachable
+      println!("Use: browsewith ARGUMENTS\n\tArguments:\n\t\tURL\t\t\t\tA valid http or https url\n\t\t--set-default [system|user]\tSets browsewith as the default browser system wide or for the current user.\n\t\t\t\t\t\tNote: BrowseWith needs to be executed with elevated privileges to set as the default browser systemwide.");
+      error_code = 4;
+    }
+  }
+
+  match error_code {
+    -1 => { show_application_window(configuration); }
+    0 => { exit(0); },
+    _ => { exit(error_code); }
+  }
 }
 
 fn show_application_window(configuration:config::Configuration) {
@@ -46,25 +102,13 @@ fn show_application_window(configuration:config::Configuration) {
   .build();
 
   // Application ::command-line signal handler
-  application.connect_command_line( move |app, command_line_arguments| {
-    let args:Vec<OsString>;
-    let url:String;
-
-    // Check if the argument is a valid URL and stores it for later
-    args = command_line_arguments.arguments();
-    if args.len() == 2 {
-      url = args[1].to_str().unwrap().to_string();
-      if webclient::validate_url(&url) {
-        URL.with( |v| { *v.borrow_mut() = url });
-      } else {
-        println!("Invalid URL");
-        app.quit();
-      }
-    } else if args.len() > 2 {
-      println!("This application takes only one argument, the URL");
-      app.quit();
-    }
-
+  /* NOTE:
+    This acts as a dummy hanler, all the process of CLI arguments is done in 'fn main'
+    but Gtk requires this handler if arguments are being passed to browsewith.
+    We can't proccess the arguments here also because of the 'Gtk-WARNING **: cannot open display' error
+    when running browsewith with elevated priviledges.
+  */
+  application.connect_command_line( move |app, _cli_arguments| {
     app.activate();
     return 0;
   });
