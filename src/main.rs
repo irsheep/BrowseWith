@@ -2,6 +2,7 @@ use gtk::prelude::*;
 use gtk::{ HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, WindowPosition };
 use gtk::gdk_pixbuf::{ Pixbuf, InterpType };
 use gtk::gio::{ ApplicationFlags };
+use gtk::pango::{ EllipsizeMode };
 
 use std::process::{ Command, Stdio, exit };
 use std::cell::{ RefCell };
@@ -127,7 +128,7 @@ fn show_application_window(configuration:config::Configuration) {
     let window = ApplicationWindow::builder()
       .application(app)
       .title("BrowseWith")
-      .default_width(180+icon_spacing*2)
+      .default_width(180 + icon_spacing * 2)
       .default_height(70)
       .window_position(WindowPosition::Center)
       .build();
@@ -149,7 +150,7 @@ fn show_application_window(configuration:config::Configuration) {
 
     // Check if we need to add taget URL host information
     if configuration.settings.host_info {
-      hostinfo_box = diplay_host_info();
+      hostinfo_box = diplay_host_info(180 * icons_per_row + icon_spacing * icons_per_row - icon_spacing);
       window_box.add(&hostinfo_box);
     }
 
@@ -222,7 +223,7 @@ fn button_clicked<'a>(application:&Application, browser_settings:&'a config::Bro
   application.quit();
 }
 
-fn diplay_host_info() -> Box {
+fn diplay_host_info(max_width:i32) -> Box {
   let box_object:Box;
   let label_url:Label;
   // let label_page_title:Label;
@@ -237,7 +238,12 @@ fn diplay_host_info() -> Box {
   url = format!("Url: {}", url);
 
   // Create the Label objects
-  label_url = Label::builder().label(&url).halign(Align::Start).build();
+  label_url = Label::builder().label(&url).halign(Align::Start)
+    .ellipsize(EllipsizeMode::End)
+    .expand(false)
+    .width_request(max_width)
+    .max_width_chars(30)
+    .build();
   // label_page_title = Label::builder().label("Page title:").halign(Align::Start).build();
   // label_ssl_status = Label::builder().label("SSL Statue:").halign(Align::Start).build();
   // label_response = Label::builder().label("Response:").halign(Align::Start).build();
