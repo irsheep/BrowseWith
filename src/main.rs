@@ -6,6 +6,7 @@ use gtk::pango::{ EllipsizeMode };
 
 use std::process::{ Command, Stdio, exit };
 use std::cell::{ RefCell };
+use std::path::{ Path };
 
 // Configuration module
 mod config;
@@ -171,7 +172,7 @@ fn show_application_window(configuration:config::Configuration) {
     // Display main windows with all the components
     window.add(&window_box);
     window.show_all();
-  
+
   });
 
   application.run();
@@ -183,22 +184,29 @@ fn button_with_image(application:&Application, browser_settings:&config::Browser
   let image:Image;
   let button:Button;
   let mut image_pixbuf:Pixbuf;
+  let icon_path:&Path;
 
-  // Clone application and browser_settings so we can pass them to 
+  // Clone application and browser_settings so we can pass them to
   // the closure in button connect_clicked
   application_clone = application.clone();
   browser_settings_clone = browser_settings.clone();
 
-  // Create a button with image and label, assigning a function for when clicked
-  image_pixbuf = Pixbuf::from_file(browser_settings.icon.clone()).unwrap();
-  if image_pixbuf.width() != 32 && image_pixbuf.height() != 32 {
-    image_pixbuf = image_pixbuf.scale_simple(32, 32, InterpType::Bilinear ).unwrap();
+  // Get the icon for the button
+  icon_path = Path::new(&browser_settings.icon);
+  if icon_path.is_file() {
+    image_pixbuf = Pixbuf::from_file(browser_settings.icon.clone()).unwrap();
+    if image_pixbuf.width() != 32 && image_pixbuf.height() != 32 {
+      image_pixbuf = image_pixbuf.scale_simple(32, 32, InterpType::Bilinear ).unwrap();
+    }
+    image = Image::from_pixbuf(Some(&image_pixbuf));
+  } else {
+    image = Image::from_icon_name(Some(&browser_settings.icon), gtk::IconSize::LargeToolbar);
   }
-  image = Image::from_pixbuf(Some(&image_pixbuf));
+
   button = Button::builder()
     .width_request(180).height_request(60)
     .image(&image).always_show_image(true).image_position(PositionType::Left)
-    .label(&browser_settings.title)  
+    .label(&browser_settings.title)
     .margin_start(margins.left)
     .margin_top(margins.top)
     .margin_end(margins.right)

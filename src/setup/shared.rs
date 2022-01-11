@@ -3,6 +3,7 @@ use std::path::{ Path };
 use std::str::{ Lines };
 use std::slice::{ Iter };
 
+#[allow(dead_code)]
 pub fn modify_default_list(file_path:&Path) {
   let defaults_list_data:String;
   let mut lines:Lines;

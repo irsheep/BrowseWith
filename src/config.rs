@@ -3,8 +3,9 @@ use dirs;
 use std::path::{ Path, PathBuf };
 
 use std::fs;
-use std::fs::{ File };
+use std::fs::{ File, read_to_string };
 use std::io::{ BufReader, BufWriter };
+use std::str::{ Lines };
 
 use serde::{Deserialize, Serialize};
 
@@ -34,11 +35,8 @@ pub struct Configuration {
 pub fn get_configuration() -> Configuration {
   let configuration:Configuration;
   let home_dir_path:Option<PathBuf>;
-  let mut config_directory_buf:PathBuf;
-  let mut config_file_buf:PathBuf;
-
-  let config_directory_path:&Path;
-  let config_file_path:&Path;
+  let config_directory_buf:PathBuf;
+  let config_file_buf:PathBuf;
 
   // Check user home directory, this should always exist.
   home_dir_path = dirs::home_dir();
@@ -46,34 +44,43 @@ pub fn get_configuration() -> Configuration {
     //TODO: Abort with error
   }
 
-  // Create PathBuf objects for configuration directory and file.
-  config_directory_buf = home_dir_path.unwrap();
-  config_directory_buf.push(".browsewith/");
-  config_file_buf = config_directory_buf.clone();
-  config_file_buf.push(".brosewith/"); //BUG: config_directory_buf already has '.browsewith' but its lost when clonned to config_file_buf
-  config_file_buf.set_file_name("config.json");
-
-  // Transform the PathBuf objects to Path, so we can do directory/file checks and other operations
-  config_directory_path = config_directory_buf.as_path();
-  config_file_path = config_file_buf.as_path();
+  config_directory_buf = get_config_dir();
+  config_file_buf = get_config_file();
 
   // Create configuration directory and file if required
-  if !config_directory_path.is_dir() {
+  if !config_directory_buf.is_dir() {
     println!("Configuration directory not found");
-    match fs::create_dir(config_directory_path) {
+    match fs::create_dir(config_directory_buf.as_path()) {
       e => println!("{:?}", e)
     };
   }
-  if !config_file_path.is_file() {
+  if !config_file_buf.is_file() {
     println!("Configuration file not found");
-    create_configuration_file(config_file_path);
+    create_configuration_file(&config_file_buf);
   }
 
-  configuration = load_configuration(&config_file_path);
+  configuration = load_configuration(&config_file_buf);
   return configuration;
 }
 
-fn create_configuration_file(config_full_path:&Path) {
+pub fn get_config_dir() -> PathBuf {
+  let mut home_dir:PathBuf;
+
+  home_dir = dirs::home_dir().unwrap();
+  home_dir.push(".browsewith");
+
+  return home_dir.to_path_buf();
+}
+pub fn get_config_file() -> PathBuf {
+  let mut config_file:PathBuf;
+
+  config_file = get_config_dir().to_path_buf();
+  config_file.push("config.json");
+
+  return config_file.to_path_buf();
+}
+
+fn create_configuration_file(config_full_path:&PathBuf) {
   let default_configuration:Configuration;
   default_configuration = get_default_settings();
   save_configuration(config_full_path, &default_configuration);
@@ -96,81 +103,65 @@ fn get_default_settings() -> Configuration {
 }
 
 fn get_browser_list() -> Vec<BrowserSettings> {
-  let mut executable_buf:PathBuf;
-  let mut executable_path:&Path;
-  let mut icon_buf:PathBuf;
-  let mut icon_path:&Path;
+  let mut file_data:String;
+  let mut lines:Lines;
+  let mut dot_desktop_config:PathBuf;
+
+  let mut browsers_found:Vec<BrowserSettings> = [].to_vec();
+  let mut browsers_settings:BrowserSettings;
 
   let mut browser_list:Vec<BrowserSettings> = [
     BrowserSettings { title: "Brave".to_string(), executable: "brave-browser".to_string(), arguments: "".to_string(), icon: "brave-browser.png".to_string() },
     BrowserSettings { title: "Brave Incognito".to_string(), executable: "brave-browser".to_string(), arguments: "--incognito".to_string(), icon: "brave-browser.png".to_string() },
-    BrowserSettings { title: "Brave TOR".to_string(), executable: "brave-browser".to_string(), arguments: "".to_string(), icon: "brave-browser.png".to_string() },
+    BrowserSettings { title: "Brave TOR".to_string(), executable: "brave-browser".to_string(), arguments: "--tor".to_string(), icon: "brave-browser.png".to_string() },
     BrowserSettings { title: "Edge".to_string(), executable: "Microsoft\\Edge\\Application\\msedge.exe".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
     BrowserSettings { title: "Edge InPrivate".to_string(), executable: "Microsoft\\Edge\\Application\\msedge.exe".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
     BrowserSettings { title: "Firefox".to_string(), executable: "firefox".to_string(), arguments: "-new-tab".to_string(), icon: "firefox.png".to_string() },
     BrowserSettings { title: "Firefox Private".to_string(), executable: "firefox".to_string(), arguments: "-private-window".to_string(), icon: "firefox.png".to_string() },
-    BrowserSettings { title: "Google".to_string(), executable: "chrome".to_string(), arguments: "--tor".to_string(), icon: "google-chrome.png".to_string() },
+    BrowserSettings { title: "Google".to_string(), executable: "chrome".to_string(), arguments: "".to_string(), icon: "google-chrome.png".to_string() },
     BrowserSettings { title: "Google Incognito".to_string(), executable: "chrome".to_string(), arguments: "--incognito".to_string(), icon: "google-chrome.png".to_string() },
-    BrowserSettings { title: "Chromium".to_string(), executable: "chromium-browser".to_string(), arguments: "--tor".to_string(), icon: "chromium-browser.png".to_string() },
+    BrowserSettings { title: "Chromium".to_string(), executable: "chromium-browser".to_string(), arguments: "".to_string(), icon: "chromium-browser.png".to_string() },
     BrowserSettings { title: "Chromium Incognito".to_string(), executable: "chromium-browser".to_string(), arguments: "--incognito".to_string(), icon: "chromium-browser.png".to_string() },
     // { title: "".to_string(), executable: "".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
   ].to_vec();
-  
-  let mut browsers_found:Vec<BrowserSettings> = [].to_vec();
-  let mut browsers_settings:BrowserSettings;
 
-  let well_known_bin = [
-    "/usr/bin",
-    "/usr/local/bin",
-    "/bin"
-  ];
-  let well_known_icon = [
-    "/usr/share/icons/hicolor/32x32/apps",
-    "/usr/share/icons/hicolor/64x64/apps",
-    "/usr/share/icons/Papirus/32x32/apps",
-    "/usr/share/icons/Papirus/64x64/apps",
+  let dot_desktop_directories = [
+    "/usr/share/applications",
+    "/usr/local/share/applications"
   ];
 
-  // let metadata:Result<Metadata>;
   for browser in &mut browser_list {
-    for bin in well_known_bin {
-      executable_buf = Path::new(bin).join(&browser.executable);
-      executable_path = executable_buf.as_path();
+    for dot_desktop in dot_desktop_directories {
+      dot_desktop_config = Path::new(dot_desktop).join(&browser.executable).with_extension("desktop");
 
-      if is_file_executable(&executable_path) {
+      if dot_desktop_config.is_file() {
+        file_data = read_to_string(dot_desktop_config).expect("Could not read file defaults.list");
+        lines = file_data.lines();
         browsers_settings = browser.clone();
-        
-        match executable_path.to_str() {
-          None => browsers_settings.executable = "".to_string(),
-          Some(f) => {
-            browsers_settings.executable = f.to_string();
-          }
-        }
-
-        for icon in well_known_icon {
-          icon_buf = Path::new(icon).join(&browser.icon);
-          icon_path = icon_buf.as_path();
-          if icon_path.exists() {
-            match icon_path.to_str() {
-              None => browsers_settings.icon = "".to_string(),
-              Some(i) => {
-                browsers_settings.icon = i.to_string();
+        loop {
+          match lines.next() {
+            Some(line) => {
+              if line.starts_with("Icon=") {
+                browsers_settings.icon = line.trim_start_matches("Icon=").to_string();
+              } else if line.starts_with("Exec=") {
+                browsers_settings.executable = line.trim_start_matches("Exec=").split_whitespace().next().unwrap().to_string();
               }
+            },
+            None => {
+              break;
             }
-            break;
           }
         }
-
         browsers_found.push(browsers_settings.clone());
         break;
       }
+
     }
   }
-
   return browsers_found;
 }
 
-fn load_configuration(file_path:&Path) -> Configuration {
+fn load_configuration(file_path:&PathBuf) -> Configuration {
   let reader:BufReader<File>;
   let file_handle:File;
   let configuration:Configuration;
@@ -181,7 +172,7 @@ fn load_configuration(file_path:&Path) -> Configuration {
   return configuration;
 }
 
-fn save_configuration(file_path:&Path, data:&Configuration) {
+fn save_configuration(file_path:&PathBuf, data:&Configuration) {
   let writer:BufWriter<File>;
   let file_handle:File;
 
@@ -192,16 +183,3 @@ fn save_configuration(file_path:&Path, data:&Configuration) {
     Err(..) => { println!("Failed to create {}", file_path.to_str().unwrap()); }
   };
 }
-
-fn is_file_executable(path:&Path) -> bool {
-  if ! path.exists() { return false; }
-
-  if cfg!(unix) {
-    // TODO: Check if user has exec permissions on the file,
-    // for now just assume that he has
-    return true;
-  }
-
-  return false;
-}
-
