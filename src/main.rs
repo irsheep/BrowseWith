@@ -58,7 +58,7 @@ fn main() {
             setup::set_default_browser(true);
             error_code = 0;
           } else {
-            println!("This application required elevated privileges to change the default browser systemwide.");
+            println!("This application requires elevated privileges to change the default browser systemwide.");
             error_code = 1;
           }
         },

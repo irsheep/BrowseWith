@@ -273,7 +273,6 @@ fn get_registered_application(association_level:ASSOCIATIONLEVEL) -> Result<[Str
       }
     }
 
-    println!("http: {}\nhttps: {}", http_handler_name, https_handler_name);
     SHChangeNotify( SHCNE_ASSOCCHANGED, SHCNF_DWORD | SHCNF_FLUSH, std::ptr::null_mut(), std::ptr::null_mut() );
 
   }
