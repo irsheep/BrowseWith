@@ -1,0 +1,69 @@
+Windows Registry Editor Version 5.00
+
+; Reference
+; https://docs.microsoft.com/en-gb/windows/win32/shell/default-programs
+
+; ----------
+; Default program
+[HKEY_LOCAL_MACHINE\SOFTWARE\BrowseWith.1]
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\BrowseWith.1\Capabilities]
+"ApplicationDescription"="Select browser to open URL"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\BrowseWith.1\Capabilities\FileAssociations]
+".html"="BrowseWith.Assoc.1"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\BrowseWith.1\Capabilities\MIMEAssociations]
+"application/http"="BrowseWith.Assoc.1"
+"application/https"="BrowseWith.Assoc.1"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\BrowseWith.1\Capabilities\UrlAssociations]
+"http"="BrowseWith.Assoc.1"
+"https"="BrowseWith.Assoc.1"
+
+; ----------
+; ProgIDs
+
+; MIME type Assoc
+[HKEY_LOCAL_MACHINE\SOFTWARE\Classes\BrowseWith.Assoc.1]
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Classes\BrowseWith.Assoc.1\CLSID]
+@="{39DCD515-7CD5-4B79-B076-44996FB9D899}"
+
+; File type Assoc
+[HKEY_LOCAL_MACHINE\SOFTWARE\Classes\BrowseWith.Assoc.1]
+@="Local web page files"
+"AppUserModelId"="BrowseWith"
+
+; Application description
+[HKEY_LOCAL_MACHINE\SOFTWARE\Classes\BrowseWith.Assoc.1\Application]
+"ApplicationCompany"="irsheep"
+"ApplicationDescription"="Select browser to open URL"
+; "ApplicationIcon"="%USER_PROFILE%\\.browsewith\\browsewith.ico" as REG_EXPAND_SZ below
+"ApplicationIcon"=hex(2):25,00,55,00,53,00,45,00,52,00,50,00,52,00,4f,00,46,00,49,00,4c,\
+  00,45,00,25,00,5c,00,5c,00,2e,00,62,00,72,00,6f,00,77,00,73,00,65,00,77,00,\
+  69,00,74,00,68,00,5c,00,5c,00,62,00,72,00,6f,00,77,00,73,00,65,00,77,00,69,\
+  00,74,00,68,00,2e,00,69,00,63,00,6f,00,00,00
+"ApplicationName"="BrowseWith"
+"AppUserModelId"="BrowseWith"
+
+; Icon
+[HKEY_LOCAL_MACHINE\SOFTWARE\Classes\BrowseWith.Assoc.1\DefaultIcon]
+; @="%USER_PROFILE%\\.browsewith\\browsewith.ico" as REG_EXPAND_SZ below
+@=hex(2):25,00,55,00,53,00,45,00,52,00,50,00,52,00,4f,00,46,00,49,00,4c,\
+  00,45,00,25,00,5c,00,5c,00,2e,00,62,00,72,00,6f,00,77,00,73,00,65,00,77,00,\
+  69,00,74,00,68,00,5c,00,5c,00,62,00,72,00,6f,00,77,00,73,00,65,00,77,00,69,\
+  00,74,00,68,00,2e,00,69,00,63,00,6f,00,00,00
+; Shell extensions
+[HKEY_LOCAL_MACHINE\SOFTWARE\Classes\BrowseWith.Assoc.1\shell]
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Classes\BrowseWith.Assoc.1\shell\open]
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Classes\BrowseWith.Assoc.1\shell\open\command]
+@="F:\Temp\browsewith\browsewith.exe \"%1\""
+
+;----------
+; Registered Applications
+; Registers the location of the BrowseWith 'Default Programs' registration
+[HKEY_LOCAL_MACHINE\SOFTWARE\RegisteredApplications]
+"BrowseWith"="Software\BrowseWith\Capabilities"
