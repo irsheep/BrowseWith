@@ -83,6 +83,7 @@ dependencies = [
 name = "browsewith"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "dirs",
  "glib 0.15.0",
  "gtk",

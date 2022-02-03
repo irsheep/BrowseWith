@@ -1,17 +1,21 @@
 use gtk::prelude::*;
 use gtk::{ HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, WindowPosition };
-use gtk::gdk_pixbuf::{ Pixbuf, InterpType };
+// use gtk::gdk_pixbuf::{ Pixbuf, InterpType };
 use gtk::gio::{ ApplicationFlags };
 use gtk::pango::{ EllipsizeMode };
 
 use std::process::{ Command, Stdio, exit };
 use std::cell::{ RefCell };
-use std::path::{ Path };
+use std::path::{ PathBuf };
 
 // Configuration module
 mod config;
 mod webclient;
 mod setup;
+
+#[cfg(target_family = "windows")] use std::fs::{ create_dir };
+#[cfg(target_family = "windows")] mod portable_executable;
+#[cfg(target_family = "windows")] extern crate base64;
 
 #[derive(Clone, Copy)]
 struct ButtonMargins {
@@ -183,25 +187,13 @@ fn button_with_image(application:&Application, browser_settings:&config::Browser
   let application_clone:Application;
   let image:Image;
   let button:Button;
-  let mut image_pixbuf:Pixbuf;
-  let icon_path:&Path;
 
   // Clone application and browser_settings so we can pass them to
   // the closure in button connect_clicked
   application_clone = application.clone();
   browser_settings_clone = browser_settings.clone();
 
-  // Get the icon for the button
-  icon_path = Path::new(&browser_settings.icon);
-  if icon_path.is_file() {
-    image_pixbuf = Pixbuf::from_file(browser_settings.icon.clone()).unwrap();
-    if image_pixbuf.width() != 32 && image_pixbuf.height() != 32 {
-      image_pixbuf = image_pixbuf.scale_simple(32, 32, InterpType::Bilinear ).unwrap();
-    }
-    image = Image::from_pixbuf(Some(&image_pixbuf));
-  } else {
-    image = Image::from_icon_name(Some(&browser_settings.icon), gtk::IconSize::LargeToolbar);
-  }
+  image = get_icon_image(&browser_settings.icon);
 
   button = Button::builder()
     .width_request(180).height_request(60)
@@ -272,3 +264,65 @@ fn diplay_host_info(max_width:i32) -> Box {
 
   return box_object;
 }
+
+fn get_icon_image(file_path:&String) -> Image {
+  let image:Image;
+  let width_height:i32 = 24;
+
+  #[cfg(target_family = "windows")] let mut icon_file:PathBuf;
+  #[cfg(target_family = "unix")] let icon_file:PathBuf;
+
+  #[cfg(target_family = "windows")] {
+    let config_dir:String = config::get_config_dir().to_str().unwrap().to_string();
+    let parts:Vec<&str>;
+    let source:String;
+    let index:usize;
+
+    if file_path.contains(".exe") {
+      icon_file = PathBuf::from(&config_dir);
+      icon_file.push("cache");
+      icon_file.push(base64::encode(file_path));
+      icon_file.set_extension("ico");
+    
+      // Get icon index from an .exe file. Default to 0 if not specified
+      parts = file_path.split(",").collect();
+      source = parts[0].to_string();
+      if file_path.contains(",") {
+        index = parts[1].parse().unwrap();
+      } else {
+        index = 0;
+      }
+
+      if !icon_file.parent().unwrap().exists() {
+        create_dir(icon_file.parent().unwrap()).unwrap();
+      }
+      if !icon_file.exists() {
+        portable_executable::save_icon(source.as_str(), index, icon_file.to_str().unwrap(), Some(width_height));
+      }
+
+    } else {
+      icon_file = PathBuf::from(&file_path);
+    }
+  }
+  #[cfg(target_family = "unix")] {
+    icon_file = PathBuf::from(&file_path);
+  }
+
+  if icon_file.is_file() {
+    image = ImageBuilder::new()
+      .file(icon_file.to_str().unwrap())
+      .width_request(width_height)
+      .height_request(width_height)
+      .build();
+  } else {
+    image = ImageBuilder::new()
+      .icon_name(file_path)
+      .icon_size(gtk::IconSize::LargeToolbar)
+      .width_request(width_height)
+      .height_request(width_height)
+      .build();
+  }
+
+  return image;
+}
+use gtk::ImageBuilder;

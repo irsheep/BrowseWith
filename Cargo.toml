@@ -23,6 +23,7 @@ reqwest = "0.11.8"
 nix = "0.9.0"
 #url = "2.2.2"
 #futures = "0.3.19"
+base64 = "0.13.0"
 
 [dependencies.gtk]
 version = "0.14.3"
