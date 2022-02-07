@@ -139,7 +139,7 @@ pub fn load_icon() {
       Err(..) => println!("Failed to create icon file")
     }
   }
-  
+
   // Confirm that the icon was successfully created before loading
   if icon_file_path.is_file() {
     // Assign the icon to the main window
@@ -215,8 +215,8 @@ fn set_registry_settings(system_wide:bool) -> std::io::Result<()> {
 }
 
 fn get_registered_application(association_level:ASSOCIATIONLEVEL) -> Result<[String; 2], Error> {
-  let mut http:[u16; 5] = [ 0x68, 0x74, 0x74, 0x70, 0x00 ]; 
-  let mut https:[u16; 6] = [ 0x68, 0x74, 0x74, 0x70, 0x73, 0x00 ]; 
+  let mut http:[u16; 5] = [ 0x68, 0x74, 0x74, 0x70, 0x00 ];
+  let mut https:[u16; 6] = [ 0x68, 0x74, 0x74, 0x70, 0x73, 0x00 ];
   let http_handler_name:String;
   let https_handler_name:String;
 
@@ -440,7 +440,7 @@ fn update_reg_raw(path:&RegKey, key:&str, value:&str, reg_type:RegType) {
 
 //       let mut my_size = (data_len as usize / std::mem::size_of::<u16>()) as usize;
 //       let mut data: Vec<u16> = vec![0; data_len as usize ];
-  
+
 //       // Read the actual value of the key
 //       win_error = RegGetValueW(
 //         self.key_handle,

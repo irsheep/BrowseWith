@@ -90,7 +90,7 @@ fn create_configuration_file(config_full_path:&PathBuf) {
 
 fn get_default_settings() -> Configuration {
   let installed_browsers:Vec<BrowserSettings>;
-  
+
   #[cfg(target_family = "unix")] {
     installed_browsers = unix::get_browser_list();
   }

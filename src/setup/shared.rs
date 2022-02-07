@@ -9,7 +9,7 @@ pub fn modify_default_list(file_path:&Path) {
   let mut lines:Lines;
   let mut defaults_list_iterator:Iter<&str>;
   let mut defaults_list_changed:bool = false;
-  
+
   // Data to be written to 'defaults.file'
   let mut new_data:String;
   let mut new_data_line:String;
@@ -29,7 +29,7 @@ pub fn modify_default_list(file_path:&Path) {
   loop {
     match lines.next() {
       Some(line) => {
-        
+
         defaults_list_iterator = defaults_list_keys.iter();
         new_data_line = line.clone().to_string();
         loop {
@@ -42,7 +42,7 @@ pub fn modify_default_list(file_path:&Path) {
                   line.strip_prefix(key).unwrap().replace(desktop_filename, "").replace(";;", ";")
                 ).as_str().to_owned();
                 defaults_list_changed = true;
-              }    
+              }
             },
             None => {
               break;
@@ -51,7 +51,7 @@ pub fn modify_default_list(file_path:&Path) {
         }
         new_data.push_str(new_data_line.as_str());
         new_data.push('\n');
-        
+
       },
       None => { break; }
     }

@@ -39,7 +39,7 @@ pub fn load_icon() {
       Err(..) => println!("Failed to create icon file")
     }
   }
-  
+
   // Confirm that the icon was successfully created before loading
   if icon_file_path.is_file() {
     // Assign the icon to the main window

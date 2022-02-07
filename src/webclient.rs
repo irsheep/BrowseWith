@@ -1,8 +1,15 @@
-use reqwest::{ Url };
+use url::{ Url };
 
 pub fn validate_url(request_url:&str) -> bool {
+  let supported_schemes:Vec<String> = vec!["http".to_string(), "https".to_string(), "ftp".to_string()];
+
   match Url::parse(request_url) {
-    Ok(..) => return true,
-    Err(..) => return false
+    Ok(url) => {
+      if supported_schemes.contains(&url.scheme().to_lowercase()) {
+        return true;
+      }
+      return false;
+    },
+    Err(..) => { return false }
   };
 }

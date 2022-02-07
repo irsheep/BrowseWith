@@ -1,6 +1,6 @@
+// #![windows_subsystem = "windows"]
 use gtk::prelude::*;
-use gtk::{ HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, WindowPosition };
-// use gtk::gdk_pixbuf::{ Pixbuf, InterpType };
+use gtk::{ HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, WindowPosition, ImageBuilder };
 use gtk::gio::{ ApplicationFlags };
 use gtk::pango::{ EllipsizeMode };
 
@@ -91,10 +91,20 @@ fn main() {
   }
 
   match error_code {
-    -1 => { show_application_window(configuration); }
+    -1 => {
+      #[cfg(target_family = "windows")] hide_console_window();
+      show_application_window(configuration);
+    },
     0 => { exit(0); },
     _ => { exit(error_code); }
   }
+}
+
+#[cfg(target_family = "windows")]
+fn hide_console_window() {
+  unsafe {
+    winapi::um::wincon::FreeConsole();
+  };
 }
 
 fn show_application_window(configuration:config::Configuration) {
@@ -283,7 +293,7 @@ fn get_icon_image(file_path:&String) -> Image {
       icon_file.push("cache");
       icon_file.push(base64::encode(file_path));
       icon_file.set_extension("ico");
-    
+
       // Get icon index from an .exe file. Default to 0 if not specified
       parts = file_path.split(",").collect();
       source = parts[0].to_string();
@@ -325,4 +335,3 @@ fn get_icon_image(file_path:&String) -> Image {
 
   return image;
 }
-use gtk::ImageBuilder;

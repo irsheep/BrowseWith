@@ -359,7 +359,7 @@ impl SectionDataDirectory {
   }
 }
 
-// 
+//
 pub struct ResourceDataDirectory {
   // address_pointer: u64,
   pub characteristics: [u8; 4],
@@ -473,12 +473,12 @@ impl DirectoryEntry {
 
     buffer.seek(SeekFrom::Start( resources_root_address+data.offset.as_u31() as u64 ))?;
     if data.offset.high_bit_set() {
-      data.child_resource = Some(ResourceDataDirectory::to_object(buffer).unwrap());  
+      data.child_resource = Some(ResourceDataDirectory::to_object(buffer).unwrap());
     } else {
       // println!("DataEntry");
       data.data_entry_resource = Some(ResourceDataEntry::to_object(buffer).unwrap());
     }
-    
+
     buffer.seek(SeekFrom::Start(pointer_save))?;
     // exit(0);
 
@@ -555,7 +555,7 @@ impl ResourceDirectoryString {
     let mut data:ResourceDirectoryString = ResourceDirectoryString::new();
 
     buffer.read_exact(&mut data.length)?;
-    
+
 
     return Ok(data);
   }
@@ -595,7 +595,7 @@ impl IconDir {
     buffer.read_exact(&mut data.reserved)?;
     buffer.read_exact(&mut data.image_type)?;
     buffer.read_exact(&mut data.number_of_images)?;
-    
+
     return Ok(data);
   }
 }
