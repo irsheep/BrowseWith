@@ -9,15 +9,28 @@ mod windows;
 
 mod shared;
 
-pub fn set_default_browser(system_wide:bool) {
-  #[cfg(target_os = "linux")]
-  linux::set_default_browser(system_wide);
+pub fn install() {
 
-  #[cfg(all(target_family = "unix", not(target_os="linux")))]
+  #[cfg(target_family = "unix")]
+  unix::install();
+  
+}
+
+pub fn set_default_browser(system_wide:bool) {
+  // #[cfg(target_os = "linux")]
+  // linux::set_default_browser(system_wide);
+
+  #[cfg(target_family = "unix")]
   unix::set_default_browser(system_wide);
 
   #[cfg(target_family = "windows")]
   windows::set_default_browser(system_wide);
+}
+
+pub fn list_default_applications() {
+
+  #[cfg(target_family = "unix")]
+  unix::list_default_applications();
 }
 
 pub fn is_privileged_user() -> bool {

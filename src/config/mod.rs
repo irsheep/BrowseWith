@@ -11,6 +11,22 @@ use serde::{Deserialize, Serialize};
 #[cfg(target_family = "unix")] mod unix;
 #[cfg(target_family = "windows")] mod windows;
 
+#[allow(dead_code)] pub static OS_CONFIG_TOOL:&str = "xdg-settings";
+#[allow(dead_code)] pub static DESKTOP_FILE:&str = "browsewith.desktop";
+#[allow(dead_code)] pub static ICON_FILE:&str = "browsewith.ico";
+#[allow(dead_code)] pub static CONFIG_FILE:&str = "config.json";
+#[allow(dead_code)] pub static PATH_EXECUTABLE:&str = "/usr/local/bin";
+
+#[allow(dead_code)]
+#[cfg(target_os = "linux")] pub static PATH_DESKTOP:&str = "/usr/share/applications";
+#[allow(dead_code)]
+#[cfg(target_os = "freebsd")] pub static PATH_DESKTOP:&str = "/usr/local/share/applications";
+
+#[allow(dead_code)]
+#[cfg(target_os = "linux")] pub static PATH_ICON:&str = "/usr/share/icons/hicolor/scalable/apps";
+#[allow(dead_code)]
+#[cfg(target_os = "freebsd")] pub static PATH_ICON:&str = "/usr/local/share/icons/hicolor/scalable/apps";
+
 #[derive(Serialize, Deserialize)]
 pub struct Settings {
   pub set_default: i32,
@@ -65,11 +81,16 @@ pub fn get_configuration() -> Configuration {
   return configuration;
 }
 
+pub fn get_home_dir() -> PathBuf {
+  return dirs::home_dir().unwrap();
+}
+
 pub fn get_config_dir() -> PathBuf {
   let mut home_dir:PathBuf;
 
   home_dir = dirs::home_dir().unwrap();
-  home_dir.push(".browsewith");
+  #[cfg(target_family = "unix")] home_dir.push(".config");
+  home_dir.push("browsewith");
 
   return home_dir.to_path_buf();
 }

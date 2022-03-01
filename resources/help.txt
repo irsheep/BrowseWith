@@ -1,0 +1,23 @@
+Name
+   browsewith
+
+Description
+   This application allows you to choose a Web browser
+   when you click an URL, from an application or email client.
+
+Synopsis
+
+   browsewith --install
+   browsewith --uninstall
+   browsewith --status
+   browsewith [URL]
+
+Options
+   --install 
+          Install the application on the system, copying requried files to the appropriate locations.
+   --uninstall
+          Remove the application from the system, removes application files.
+   --status
+          Displays the current default browser
+   [URL]
+          The URL that will be open on the selected browser.

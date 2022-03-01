@@ -1,14 +1,17 @@
 [Desktop Entry]
 Version=1.0
-Name=BrowseWith
-GenericName=WebBrowser
-Comment=Select browser to open links
+Name=Browse With
+GenericName=BrowseWith
+Comment=Choose web browser before opening links
 
-MimeType=x-scheme-handler/http;x-scheme-handler/https;
+MimeType=x-scheme-handler/http;x-scheme-handler/https;text/html;
 
-Exec=/usr/bin/browsewith %U
-Terminal=false
 TryExec=browsewith
-Icon=/usr/share/icons/hicolor/scalable/apps/browsewith.ico
+Exec=_SYSTEM_PATH_/browsewith %u
+Terminal=false
+
+Icon=_CONFIG_PATH_/browsewith.ico
+
 Type=Application
-Categories=Utility;WebBrowser;
+Categories=Network;
+Keywords=web;browser;internet;

@@ -31,72 +31,65 @@ thread_local!(
 );
 
 fn main() {
+  let help_message:String = String::from_utf8(include_bytes!("../resources/help.txt").to_vec()).unwrap();
+
   let configuration:config::Configuration;
+  let mut valid_url:bool;
   let mut error_code:i32;
   let argument_list:Vec<String>;
   let argument_count:usize;
   let argument_name:String;
-  let argument_value:String;
-
-  // Read configuration and store settings in 'thread_local'
-  configuration = config::get_configuration();
-  URL.with(|v| { *v.borrow_mut() = configuration.settings.homepage.clone(); });
-  ICON_SPACING.with(|v| { *v.borrow_mut() = configuration.settings.icon_spacing.clone(); });
 
   argument_list = std::env::args().collect();
   argument_count = argument_list.len();
   error_code = -1;
+  valid_url = false;
 
   if argument_count > 1 {
     argument_name = argument_list[1].clone();
-    if argument_count == 3 {
-      argument_value = argument_list[2].clone();
-    } else {
-      argument_value = "".to_string();
-    }
 
-    if argument_count == 3 && argument_name == "--set-default" && argument_value != "" {
-      match argument_value.as_str() {
-        "system" => {
-          if setup::is_privileged_user() {
-            setup::set_default_browser(true);
-            error_code = 0;
-          } else {
-            println!("This application requires elevated privileges to change the default browser systemwide.");
-            error_code = 1;
-          }
-        },
-        "user" => {
-          setup::set_default_browser(false);
-          error_code = 0;
-        },
-        _ => {
-          println!("Invalid option for --set-default ");
-          error_code = 2;
-        }
-      }
-    } else if argument_count == 2 {
-      if webclient::validate_url(&argument_name) {
+    if argument_count == 2 {
+      if argument_name == "--install" {
+        setup::install();
+        error_code = 0;
+      } else if argument_name == "--uninstall" {
+        // TODO: Remove application
+        error_code = 0;
+      } else if argument_name == "--set-as-default-browser" {
+        setup::set_default_browser(setup::is_privileged_user());
+        error_code = 0;
+      } else if argument_name == "--status" {
+        setup::list_default_applications();
+        error_code = 0;
+      } else if webclient::validate_url(&argument_name) {
         URL.with( |v| { *v.borrow_mut() = argument_name });
+        valid_url = true;
         error_code = -1;
       } else {
-        println!("Invalid URL");
-        error_code = 3;
+        println!("ERROR: Invalid URL or argument");
+        error_code = 1;
       }
     } else {
-      // FIX: I think that this code is unreachable
-      println!("Use: browsewith ARGUMENTS\n\tArguments:\n\t\tURL\t\t\t\tA valid http or https url\n\t\t--set-default [system|user]\tSets browsewith as the default browser system wide or for the current user.\n\t\t\t\t\t\tNote: BrowseWith needs to be executed with elevated privileges to set as the default browser systemwide.");
-      error_code = 4;
+      error_code = 2;
     }
   }
 
   match error_code {
     -1 => {
+      // Read configuration and store settings in 'thread_local'
+      configuration = config::get_configuration();
+      if !valid_url { URL.with(|v| { *v.borrow_mut() = configuration.settings.homepage.clone(); }); }
+      ICON_SPACING.with(|v| { *v.borrow_mut() = configuration.settings.icon_spacing.clone(); });
+
       #[cfg(target_family = "windows")] hide_console_window();
       show_application_window(configuration);
+      exit(0);
     },
     0 => { exit(0); },
-    _ => { exit(error_code); }
+    _ => {
+      println!("{}", help_message);
+      exit(error_code);
+    }
   }
 }
 
@@ -145,7 +138,7 @@ fn show_application_window(configuration:config::Configuration) {
       .title("BrowseWith")
       .default_width(180 + icon_spacing * 2)
       .default_height(70)
-      .window_position(WindowPosition::Center)
+      // .window_position(WindowPosition::Center)
       .build();
 
     // Add all browsers as icons to a Box widget, creating a new child Box widget
@@ -177,7 +170,7 @@ fn show_application_window(configuration:config::Configuration) {
       .build();
 
     // Traits from GtkWindowExt
-    window.set_keep_above(true);
+    // window.set_keep_above(true);
     window.set_resizable(false);
     window.set_titlebar(Some(&header_bar));
 

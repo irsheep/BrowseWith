@@ -6,7 +6,7 @@ use gtk::glib::{ Bytes };
 
 use super::shared;
 
-pub fn set_default_browser(system_wide:bool) {
+pub fn _set_default_browser(system_wide:bool) {
   let mut default_applications_buf:PathBuf;
 
   let mut list_buf:PathBuf;
