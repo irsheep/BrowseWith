@@ -5,6 +5,8 @@ use std::process::{ exit };
 use std::io::{ Error as IoError };
 use std::ffi::CString;
 
+use core::slice::Iter;
+
 use gtk::glib::{ Bytes };
 use gtk::gdk_pixbuf::{ Pixbuf };
 
@@ -20,10 +22,11 @@ use windows::System::RemoteSystems::{ RemoteSystemConnectionRequest, RemoteSyste
 use windows::Foundation::{ IAsyncOperation, AsyncStatus, Uri };
 use windows::Networking::{ HostName };
 
-use winreg::enums::{ HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE };
+use winreg::enums::{ HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS };
 use winreg::enums::{ RegType, RegDisposition };
 use winreg::{ RegKey, RegValue };
 
+use crate::config;
 /*
   Microsoft documentation
   https://docs.microsoft.com/en-us/windows/win32/shell/default-programs
@@ -37,6 +40,12 @@ use winreg::{ RegKey, RegValue };
   https://microsoft.github.io/windows-docs-rs/doc/windows/Foundation/struct.AsyncStatus.html
   https://microsoft.github.io/windows-docs-rs/doc/windows/Networking/struct.HostName.html
 */
+
+pub fn install() {
+  save_browsewith();
+  save_icon();
+  save_dotdesktop();
+}
 
 // Attempts to configure BrowseWith as the default web browser
 pub fn set_default_browser(system_wide:bool) {
@@ -130,8 +139,8 @@ pub fn load_icon() {
   icon_bytes = Bytes::from(&icon_raw[..]);
 
   // Create the icon file in the configuration directory, if it doesn't exist
-  home_dir_buf = dirs::home_dir().unwrap();
-  home_dir_buf.push(".browsewith/browsewith.ico");
+  home_dir_buf = config::get_config_dir();
+  home_dir_buf.push(config::ICON_FILE);
   icon_file_path = home_dir_buf.as_path();
   if !icon_file_path.is_file() {
     match write(icon_file_path, icon_bytes) {
@@ -315,6 +324,21 @@ impl PxStr for str {
   }
 }
 
+fn read_reg_string(path:&RegKey, key:&str) -> String {
+  let value:Result<String, IoError>;
+
+  value = path.get_value(key);
+  match value {
+    Ok(key_value) => {
+      println!("read_reg_string: Returning 'key_value'");
+      return key_value;
+    },
+    Err(..) => {
+      return String::new();
+    }
+  }
+}
+
 fn update_reg(path:&RegKey, key:&str, value:&str) {
   let v:Result<String, IoError>;
 
@@ -322,7 +346,13 @@ fn update_reg(path:&RegKey, key:&str, value:&str) {
   match v {
     Ok(r) => {
       if r != value {
-        path.set_value(key, &value).ok();
+        match path.set_value(key, &value) {
+          Ok(..) => {
+          },
+          Err(error) => {
+            println!("Failed update registry\n{:?}", error);
+          }
+        }
       }
     },
     Err(..) => {
@@ -356,141 +386,95 @@ fn update_reg_raw(path:&RegKey, key:&str, value:&str, reg_type:RegType) {
   }
 }
 
-// ------------------------------------------------------------------------------------
-// ------------------------------------------------------------------------------------
-// ------------------------------------------------------------------------------------
+fn save_browsewith() {
+  let mut destination_path:PathBuf;
+  let mut destination_file:PathBuf;
 
-// use windows::Win32::System::Registry::{ HKEY, RegOpenKeyW, RegOpenKeyExA, RegGetValueW, RegGetValueA, RegCloseKey };
-// use windows::Win32::System::Registry::{
-//   HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE,
-//   KEY_WOW64_32KEY, KEY_READ, KEY_WRITE,
-//   RRF_RT_REG_SZ
-// };
-// use windows::Win32::Foundation::WIN32_ERROR;
-// use core::ffi::c_void;
-// use std::ffi::OsStr;
-// use std::convert::TryInto;
-// use std::slice::{ Iter };
+  if is_privileged_user() {
+    destination_path = PathBuf::from(config::PATH_EXECUTABLE);
+  } else {
+    destination_path = config::get_config_dir();
+    destination_path.push("bin");
+  }
 
-// use core::ptr::drop_in_place;
-// use std::alloc::Layout;
-// use std::alloc::dealloc;
+  if !destination_path.is_dir() {
+    std::fs::create_dir_all(&destination_path).unwrap();
+  }
+
+  destination_file = PathBuf::from(destination_path.to_str().unwrap());
+  destination_file.push("browsewith.exe");
+  if !destination_file.exists() {
+    std::fs::copy(std::env::current_exe().unwrap(), &destination_file).unwrap();
+    add_env_path(destination_path.to_str().unwrap().to_string());
+  }
+}
+
+fn save_icon() {
+
+}
+
+fn save_dotdesktop() {
+
+}
+
+fn add_env_path(browsewith_path:String) {
+  let hkey_root:RegKey;
+  let sub_key:RegKey;
+  let env_path:String;
+
+  if is_privileged_user() {
+    hkey_root = RegKey::predef(HKEY_LOCAL_MACHINE);
+  } else {
+    hkey_root = RegKey::predef(HKEY_CURRENT_USER);
+  }
+
+  sub_key = hkey_root.open_subkey_with_flags("Environment", KEY_ALL_ACCESS).unwrap();
+  env_path = read_reg_string(&sub_key, "Path");
+
+  if !env_path.contains(&browsewith_path) {
+    update_reg(&sub_key, "Path", (format!("{};{}", env_path, browsewith_path)).as_str()) ;
+  }
+
+}
 
 
-// struct WindowsRegistry {
-//   key_handle: HKEY
-// }
+fn _remove_env_path() {
+  let hkey_root:RegKey;
+  let sub_key:RegKey;
+  let env_path:String;
+  let mut path_list:Vec<&str>;
+  let mut i:usize;
+  let mut iterator:Iter<&str>;
+  
+  if is_privileged_user() {
+    hkey_root = RegKey::predef(HKEY_LOCAL_MACHINE);
+  } else {
+    hkey_root = RegKey::predef(HKEY_CURRENT_USER);
+  }
 
-// impl WindowsRegistry {
-//   pub fn open(&mut self, hkey:HKEY, registry_path:&str) {
-//     let win_error:WIN32_ERROR;
-//     let mut key_handle: HKEY = 0 as isize;
-//     unsafe {
-//       win_error = RegOpenKeyW(
-//         hkey,
-//         registry_path.to_pwstr(),
-//         // 0,
-//         // KEY_READ,
-//         &mut key_handle
-//       );
-//       if win_error != 0 {
-//         println!("Unable to open registry (err:{})", win_error);
-//         exit(win_error as i32);
-//       }
-//       self.key_handle = key_handle;
-//       // drop_in_place(&mut key_handle);
-//       // dealloc(key_handle as *mut u8, Layout::new::<HKEY>());
-//     }
-//   }
+  sub_key = hkey_root.open_subkey("Environment").unwrap();
+  env_path = read_reg_string(&sub_key, &"Path");
 
-//   pub fn read_zs(&mut self, path_to_key:&str, key_name:&str) -> String {
-//     let mut win_error:WIN32_ERROR;
-//     let mut data_len:u32 = 0;
-//     let registry_path:PWSTR;
-//     let key_to_read:PWSTR;
+  if env_path.contains("browsewith.exe") {
+    path_list = env_path.split(";").collect();
 
-//     unsafe {
+    i = 0;
+    iterator = path_list.iter();
+    loop {
+      match iterator.next() {
+        Some(value) => {
+          if value.contains("browsewith.exe") {
+            break;
+          }
+        },
+        None => {
+          break;
+        }
+      }
+      i = i + 1;
+    }
+    path_list.remove(i);
+    update_reg(&sub_key, &"Path", &path_list.join(";"));
+  }
 
-//       if self.key_handle == -1 {
-//         println!("Key is not open");
-//         exit(666);
-//       }
-
-//       if path_to_key == "" {
-//         registry_path = PWSTR(0 as *mut u16);
-//       } else {
-//         registry_path = path_to_key.to_pwstr();
-//       }
-//       key_to_read = key_name.to_pwstr();
-
-//       // Get the size of the data
-//       win_error = RegGetValueW(
-//         self.key_handle,
-//         registry_path,
-//         key_to_read,
-//         RRF_RT_REG_SZ, // dwFlags
-//         std::ptr::null_mut(), // pdwType
-//         std::ptr::null_mut() as *mut c_void,
-//         &mut data_len
-//       );
-//       if win_error != 0 {
-//         println!("Unable to get data_len (err:{})", win_error);
-//         exit(win_error as i32);
-//       }
-
-//       let mut my_size = (data_len as usize / std::mem::size_of::<u16>()) as usize;
-//       let mut data: Vec<u16> = vec![0; data_len as usize ];
-
-//       // Read the actual value of the key
-//       win_error = RegGetValueW(
-//         self.key_handle,
-//         registry_path,
-//         key_to_read,
-//         RRF_RT_REG_SZ, // dwFlags
-//         std::ptr::null_mut(), // pdwType
-//         data.as_mut_ptr() as *mut c_void,
-//         &mut data_len
-//       );
-//       if win_error != 0 {
-//         println!("Unable to read data from key (err:{})", win_error);
-//         exit(win_error as i32);
-//       }
-
-//       println!("Reg data: {:#?} size: {}", String::from_utf16(&data).unwrap().trim_matches(char::from(0)), my_size);
-//       let s:String = String::from_utf16(&data).unwrap().trim_matches(char::from(0)).to_string();
-
-//       drop_in_place(data.as_mut_ptr() as *mut c_void);
-//       // dealloc(data.as_mut_ptr() as *mut u8, Layout::new::<Vec<u16>>());
-
-//       drop_in_place(&mut data_len);
-//       // dealloc(data_len as *mut u8, Layout::new::<u32>());
-
-//       return s;
-//     }
-//   }
-
-//   pub fn close(&mut self) {
-//     unsafe {
-//       if self.key_handle != -1 {
-//         RegCloseKey(self.key_handle);
-//         self.key_handle = -1;
-//       }
-//     }
-//   }
-// }
-
-// impl Drop for WindowsRegistry {
-//   fn drop(&mut self) {
-//     unsafe {
-//       if self.key_handle != -1 {
-//         RegCloseKey(self.key_handle);
-//         self.key_handle = -1;
-//         println!("WindowsRegistry destructor");
-//       }
-//     }
-//   }
-// }
-
-// ------------------------------------------------------------------------------------
-// ------------------------------------------------------------------------------------
-// ------------------------------------------------------------------------------------
+}

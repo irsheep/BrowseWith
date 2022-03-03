@@ -1,112 +1,39 @@
-use std::fs::{ write, read_to_string };
-use std::path::{ Path };
-use std::str::{ Lines };
-use std::slice::{ Iter };
-use ini::{ Ini, Properties };
+use std::{ include_bytes };
+use std::path::{ Path, PathBuf };
+use std::fs::{ write };
+
+use gtk::gdk_pixbuf::{ Pixbuf };
+use gtk::glib::{ Bytes };
 
 use crate::config;
 
-#[allow(dead_code)]
-pub fn modify_default_list(file_path:&Path) {
-  let mut ini:Ini;
-  let mut iter:Iter<&str>;
-  let mut new_value:String;
-  let section:&mut Properties;
+// This function can be removed from unix and windows files as they are identical
+pub fn _load_icon() {
+  let mut home_dir_buf:PathBuf;
+  let icon_file_path:&Path;
+  let icon_file:Pixbuf;
+  let icon_raw:&[u8];
+  let icon_bytes:Bytes;
 
-  let mime_keys:Vec<&str> = [
-    "text/html",
-    "x-scheme-handler/http",
-    "x-scheme-handler/https"
-  ].to_vec();
-  let mut ini_changed:bool = false;
+  // Load the icon file as '[u8]' at compile time
+  icon_raw = include_bytes!("../../resources/browsewith.ico");
+  icon_bytes = Bytes::from(&icon_raw[..]);
 
-  ini = Ini::load_from_file(file_path).unwrap();
-  section = ini.section_mut(Some("Added Associations")).unwrap();
-//test
-  iter = mime_keys.iter();
-  loop {
-    match iter.next() {
-      Some(key) => {
-        if section.contains_key(key) { 
-          match section.get(key) {
-            Some(val) => {
-              if !val.contains(config::DESKTOP_FILE) {
-                new_value = String::from(val);
-                section.insert(key.to_string(), format!("{}{};", new_value, config::DESKTOP_FILE) );
-                ini_changed = true;
-              }
-            },
-            None => { }
-          }
-        }
-      },
-      None => {
-        break;
-      }
-    }
-  }
-
-  if ini_changed {
-    ini.write_to_file(file_path).unwrap();
-  }
-
-}
-
-pub fn _dot_desktop(file_path:&Path) {
-
-  let file_data:String;
-  let mut lines:Lines;
-  let mut keys_iterator:Iter<&str>;
-
-  let mut new_data:String;
-  let mut new_data_line:String;
-
-  let dot_desktop_keys:Vec<&str> = [
-    "Icon=",
-    "Exec="
-  ].to_vec();
-
-  file_data = read_to_string(file_path).expect("Could not read file browsewith.desktop");
-  lines = file_data.lines();
-  new_data = String::new();
-
-  loop {
-    match lines.next() {
-      Some(line) => {
-
-        keys_iterator = dot_desktop_keys.iter();
-        new_data_line = line.clone().to_string();
-        loop {
-          match keys_iterator.next() {
-            Some(key) => {
-              if line.contains(key) {
-                // Change here
-                new_data_line = format!("{}{}",
-                  key,
-                  "test"
-                ).as_str().to_owned();
-              }
-            },
-            None => {
-              break;
-            }
-          }
-        }
-
-        new_data.push_str(new_data_line.as_str());
-        new_data.push('\n');
-
-      },
-      None => {
-        break;
-      }
-    }
-  }
-
-  if true {
-    match write(file_path, new_data.as_bytes()) {
+  // Create the icon file in the configuration directory, if it doesn't exist
+  home_dir_buf = config::get_config_dir();
+  home_dir_buf.push(config::ICON_FILE);
+  icon_file_path = home_dir_buf.as_path();
+  if !icon_file_path.is_file() {
+    match write(icon_file_path, icon_bytes) {
       Ok(..) => {},
-      Err(..) => {}
+      Err(..) => println!("Failed to create icon file")
     }
+  }
+
+  // Confirm that the icon was successfully created before loading
+  if icon_file_path.is_file() {
+    // Assign the icon to the main window
+    icon_file = Pixbuf::from_file(icon_file_path).unwrap();
+    gtk::Window::set_default_icon(&icon_file);
   }
 }

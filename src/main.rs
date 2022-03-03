@@ -1,6 +1,6 @@
 // #![windows_subsystem = "windows"]
 use gtk::prelude::*;
-use gtk::{ HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, WindowPosition, ImageBuilder };
+use gtk::{ HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, ImageBuilder };
 use gtk::gio::{ ApplicationFlags };
 use gtk::pango::{ EllipsizeMode };
 

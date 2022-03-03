@@ -81,6 +81,7 @@ pub fn get_configuration() -> Configuration {
   return configuration;
 }
 
+#[cfg(target_family = "unix")]
 pub fn get_home_dir() -> PathBuf {
   return dirs::home_dir().unwrap();
 }
@@ -89,8 +90,13 @@ pub fn get_config_dir() -> PathBuf {
   let mut home_dir:PathBuf;
 
   home_dir = dirs::home_dir().unwrap();
-  #[cfg(target_family = "unix")] home_dir.push(".config");
-  home_dir.push("browsewith");
+  #[cfg(target_family = "unix")] {
+    home_dir.push(".config");
+    home_dir.push("browsewith");
+  }
+  #[cfg(target_family = "windows")] {
+    home_dir.push(".browsewith");
+  }
 
   return home_dir.to_path_buf();
 }

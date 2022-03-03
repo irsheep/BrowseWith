@@ -10,6 +10,7 @@ use nix::unistd::{ Uid, getuid };
 use gtk::glib::{ Bytes };
 use gtk::gdk_pixbuf::{ Pixbuf };
 use bitflags::bitflags;
+use ini::{ Ini, Properties };
 
 use crate::config;
 
@@ -321,6 +322,52 @@ fn save_dotdesktop() {
       },
       Err(..) => { println!("Failed to create '{:?}'", dotdesktop_file.to_str()); }
     }
+  }
+
+}
+
+// #[allow(dead_code)]
+pub fn modify_default_list(file_path:&Path) {
+  let mut ini:Ini;
+  let mut iter:Iter<&str>;
+  let mut new_value:String;
+  let section:&mut Properties;
+
+  let mime_keys:Vec<&str> = [
+    "text/html",
+    "x-scheme-handler/http",
+    "x-scheme-handler/https"
+  ].to_vec();
+  let mut ini_changed:bool = false;
+
+  ini = Ini::load_from_file(file_path).unwrap();
+  section = ini.section_mut(Some("Added Associations")).unwrap();
+
+  iter = mime_keys.iter();
+  loop {
+    match iter.next() {
+      Some(key) => {
+        if section.contains_key(key) { 
+          match section.get(key) {
+            Some(val) => {
+              if !val.contains(config::DESKTOP_FILE) {
+                new_value = String::from(val);
+                section.insert(key.to_string(), format!("{}{};", new_value, config::DESKTOP_FILE) );
+                ini_changed = true;
+              }
+            },
+            None => { }
+          }
+        }
+      },
+      None => {
+        break;
+      }
+    }
+  }
+
+  if ini_changed {
+    ini.write_to_file(file_path).unwrap();
   }
 
 }

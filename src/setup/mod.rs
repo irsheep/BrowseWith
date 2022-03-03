@@ -14,6 +14,8 @@ pub fn install() {
   #[cfg(target_family = "unix")]
   unix::install();
   
+  #[cfg(target_family = "windows")]
+  windows::install();
 }
 
 pub fn set_default_browser(system_wide:bool) {
