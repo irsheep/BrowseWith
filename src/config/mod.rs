@@ -109,6 +109,11 @@ pub fn get_config_file() -> PathBuf {
   return config_file.to_path_buf();
 }
 
+#[cfg(target_family = "windows")] 
+pub fn get_program_dir() -> PathBuf {
+  return windows::get_program_dir();
+}
+
 fn create_configuration_file(config_full_path:&PathBuf) {
   let default_configuration:Configuration;
   default_configuration = get_default_settings();

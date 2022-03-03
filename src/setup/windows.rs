@@ -1,5 +1,5 @@
 use std::{ include_bytes, thread, time };
-use std::path::{ Path, PathBuf };
+use std::path::{ PathBuf };
 use std::fs::{ write };
 use std::process::{ exit };
 use std::io::{ Error as IoError };
@@ -26,6 +26,8 @@ use winreg::enums::{ HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS };
 use winreg::enums::{ RegType, RegDisposition };
 use winreg::{ RegKey, RegValue };
 
+use is_elevated::is_elevated;
+
 use crate::config;
 /*
   Microsoft documentation
@@ -44,7 +46,6 @@ use crate::config;
 pub fn install() {
   save_browsewith();
   save_icon();
-  save_dotdesktop();
 }
 
 // Attempts to configure BrowseWith as the default web browser
@@ -124,36 +125,26 @@ pub fn set_default_browser(system_wide:bool) {
 }
 
 pub fn is_privileged_user() -> bool {
-  return false;
+  return is_elevated();
 }
 
 pub fn load_icon() {
-  let mut home_dir_buf:PathBuf;
-  let icon_file_path:&Path;
-  let icon_file:Pixbuf;
-  let icon_raw:&[u8];
-  let icon_bytes:Bytes;
+  let mut icon_file:PathBuf;
+  let icon_pixbuf:Pixbuf;
 
-  // Load the icon file as '[u8]' at compile time
-  icon_raw = include_bytes!("../../resources/browsewith.ico");
-  icon_bytes = Bytes::from(&icon_raw[..]);
-
-  // Create the icon file in the configuration directory, if it doesn't exist
-  home_dir_buf = config::get_config_dir();
-  home_dir_buf.push(config::ICON_FILE);
-  icon_file_path = home_dir_buf.as_path();
-  if !icon_file_path.is_file() {
-    match write(icon_file_path, icon_bytes) {
-      Ok(..) => {},
-      Err(..) => println!("Failed to create icon file")
-    }
+  // Get the icon file, preferring the icon in 'Program Files'
+  icon_file = PathBuf::from(config::get_program_dir());
+  icon_file.push(config::ICON_FILE);
+  if !icon_file.is_file() {
+    icon_file = config::get_config_dir();
+    icon_file.push(config::ICON_FILE);
   }
 
-  // Confirm that the icon was successfully created before loading
-  if icon_file_path.is_file() {
+  // Set the application Icon if browsewith.ico is found.
+  if icon_file.is_file() {
     // Assign the icon to the main window
-    icon_file = Pixbuf::from_file(icon_file_path).unwrap();
-    gtk::Window::set_default_icon(&icon_file);
+    icon_pixbuf = Pixbuf::from_file(icon_file).unwrap();
+    gtk::Window::set_default_icon(&icon_pixbuf);
   }
 }
 
@@ -162,21 +153,25 @@ fn set_registry_settings(system_wide:bool) -> std::io::Result<()> {
   let mut sub_key:RegKey;
   let mut reg_capabilities:RegKey;
   let mut _disposition:RegDisposition;
-
+  let mut destination_path:PathBuf;
   // This should be replaced by adding as '%USER_PROFILE%\\.browsewith\\browsewith.ico' to the registry
   // as REG_EXPAND_SZ, but 'RegKey::set_raw_value' is writing mangled characters.
-  let mut icon_path:PathBuf;
+  let icon_path:PathBuf;
   let icon_full_path:&str;
-  icon_path = dirs::home_dir().unwrap();
-  icon_path.push(".browsewith");
-  icon_path.push("browsewith.ico");
-  icon_full_path = icon_path.to_str().unwrap();
 
-  if system_wide {
+  if is_privileged_user() {
     hkey_root = RegKey::predef(HKEY_LOCAL_MACHINE);
+    destination_path = config::get_program_dir();
+    icon_path = config::get_program_dir();
   } else {
     hkey_root = RegKey::predef(HKEY_CURRENT_USER);
+    destination_path = config::get_config_dir();
+    destination_path.push("bin");
+    icon_path = config::get_config_dir();
   }
+
+  destination_path.push("browsewith.exe");
+  icon_full_path = icon_path.to_str().unwrap();
 
   // Default program
   (sub_key, _disposition) = hkey_root.create_subkey("Software\\BrowseWith.1")?;
@@ -214,7 +209,7 @@ fn set_registry_settings(system_wide:bool) -> std::io::Result<()> {
   update_reg(&reg_capabilities, "", icon_full_path);
 
   (reg_capabilities, _disposition) = sub_key.create_subkey("shell\\open\\command")?;
-  update_reg(&reg_capabilities, "", "F:\\Temp\\browsewith\\browsewith.exe \"%1\"");
+  update_reg(&reg_capabilities, "", &format!("{} \"%1\"", &destination_path.to_str().unwrap()));
 
   // Registered applications
   (sub_key, _disposition) = hkey_root.create_subkey("SOFTWARE\\RegisteredApplications")?;
@@ -330,7 +325,6 @@ fn read_reg_string(path:&RegKey, key:&str) -> String {
   value = path.get_value(key);
   match value {
     Ok(key_value) => {
-      println!("read_reg_string: Returning 'key_value'");
       return key_value;
     },
     Err(..) => {
@@ -391,7 +385,7 @@ fn save_browsewith() {
   let mut destination_file:PathBuf;
 
   if is_privileged_user() {
-    destination_path = PathBuf::from(config::PATH_EXECUTABLE);
+    destination_path = config::get_program_dir();
   } else {
     destination_path = config::get_config_dir();
     destination_path.push("bin");
@@ -403,18 +397,40 @@ fn save_browsewith() {
 
   destination_file = PathBuf::from(destination_path.to_str().unwrap());
   destination_file.push("browsewith.exe");
-  if !destination_file.exists() {
-    std::fs::copy(std::env::current_exe().unwrap(), &destination_file).unwrap();
+  // Always copy in case its an update
+  std::fs::copy(std::env::current_exe().unwrap(), &destination_file).unwrap();
+
+  if destination_file.exists() {
+    copy_dlls();
     add_env_path(destination_path.to_str().unwrap().to_string());
   }
 }
 
 fn save_icon() {
+  let mut icon_file:PathBuf;
+  let icon_raw:&[u8];
+  let icon_bytes:Bytes;
 
-}
+  icon_raw = include_bytes!("../../resources/browsewith.ico");
+  icon_bytes = Bytes::from(&icon_raw[..]);
 
-fn save_dotdesktop() {
+  if is_privileged_user() {
+    icon_file = config::get_program_dir();
+  } else {
+    icon_file = config::get_config_dir();
+  }
 
+  if !icon_file.is_dir() {
+    std::fs::create_dir_all(&icon_file).unwrap();
+  }
+
+  icon_file.push(config::ICON_FILE);
+  if !icon_file.is_file() {
+    match write(&icon_file, icon_bytes) {
+      Ok(..) => {},
+      Err(..) => { println!("Failed to create '{:?}'", icon_file.to_str()); }
+    }
+  }
 }
 
 fn add_env_path(browsewith_path:String) {
@@ -424,19 +440,22 @@ fn add_env_path(browsewith_path:String) {
 
   if is_privileged_user() {
     hkey_root = RegKey::predef(HKEY_LOCAL_MACHINE);
+    sub_key = hkey_root.open_subkey_with_flags("SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment", KEY_ALL_ACCESS).unwrap();
   } else {
     hkey_root = RegKey::predef(HKEY_CURRENT_USER);
+    sub_key = hkey_root.open_subkey_with_flags("Environment", KEY_ALL_ACCESS).unwrap();
   }
 
-  sub_key = hkey_root.open_subkey_with_flags("Environment", KEY_ALL_ACCESS).unwrap();
   env_path = read_reg_string(&sub_key, "Path");
 
   if !env_path.contains(&browsewith_path) {
-    update_reg(&sub_key, "Path", (format!("{};{}", env_path, browsewith_path)).as_str()) ;
+    if env_path.ends_with(";") {
+      update_reg(&sub_key, "Path", (format!("{}{}", env_path, browsewith_path)).as_str()) ;
+    } else {
+      update_reg(&sub_key, "Path", (format!("{};{}", env_path, browsewith_path)).as_str()) ;
+    }
   }
-
 }
-
 
 fn _remove_env_path() {
   let hkey_root:RegKey;
@@ -477,4 +496,101 @@ fn _remove_env_path() {
     update_reg(&sub_key, &"Path", &path_list.join(";"));
   }
 
+}
+
+fn copy_dlls() {
+  let current_path:PathBuf = PathBuf::from(std::env::current_dir().unwrap());
+  let dll_list:Vec<&str> = [
+    "iconv.dll",
+    "icudata67.dll",
+    "icui18n67.dll",
+    "icuio67.dll",
+    "icutest67.dll",
+    "icutu67.dll",
+    "icuuc67.dll",
+    "libasprintf-0.dll",
+    "libatk-1.0-0.dll",
+    "libatomic-1.dll",
+    "libbz2-1.dll",
+    "libcairo-2.dll",
+    "libcairo-gobject-2.dll",
+    "libcairo-script-interpreter-2.dll",
+    "libepoxy-0.dll",
+    "libexpat-1.dll",
+    "libffi-6.dll",
+    "libfontconfig-1.dll",
+    "libfreetype-6.dll",
+    "libfribidi-0.dll",
+    "libgailutil-3-0.dll",
+    "libgcc_s_seh-1.dll",
+    "libgdk-3-0.dll",
+    "libgdk_pixbuf-2.0-0.dll",
+    "libgettextlib-0-21.dll",
+    "libgettextpo-0.dll",
+    "libgettextsrc-0-21.dll",
+    "libgio-2.0-0.dll",
+    "libglib-2.0-0.dll",
+    "libgmodule-2.0-0.dll",
+    "libgobject-2.0-0.dll",
+    "libgthread-2.0-0.dll",
+    "libgtk-3-0.dll",
+    "libharfbuzz-0.dll",
+    "libharfbuzz-icu-0.dll",
+    "libharfbuzz-subset-0.dll",
+    "libintl-8.dll",
+    "libjpeg-62.dll",
+    "liblcms2-2.dll",
+    "libopenjp2.dll",
+    "libpango-1.0-0.dll",
+    "libpangocairo-1.0-0.dll",
+    "libpangoft2-1.0-0.dll",
+    "libpangowin32-1.0-0.dll",
+    "libpcre-1.dll",
+    "libpcre16-0.dll",
+    "libpcre32-0.dll",
+    "libpcrecpp-0.dll",
+    "libpcreposix-0.dll",
+    "libpixman-1-0.dll",
+    "libpng16-16.dll",
+    "libpoppler-106.dll",
+    "libssp-0.dll",
+    "libstdc++-6.dll",
+    "libtermcap-0.dll",
+    "libtextstyle-0.dll",
+    "libtiff-5.dll",
+    "libtiffxx-5.dll",
+    "libturbojpeg.dll",
+    "libwinpthread-1.dll",
+    "zlib1.dll"
+   ].to_vec(); 
+
+
+
+  let mut iter:Iter<&str>;
+  let mut destination:PathBuf;
+  let mut source:PathBuf;
+
+  iter = dll_list.iter();
+  loop {
+    match iter.next() {
+      Some(dll) => {
+        if is_privileged_user() {
+          destination = PathBuf::from(config::get_program_dir());
+        } else {
+          destination = config::get_config_dir();
+          destination.push("bin");
+        }
+        destination.push(dll);
+
+        source = (&current_path).to_path_buf();
+        source.push(dll);
+        if source.is_file() {
+          std::fs::copy(source, destination).unwrap();
+        }
+      },
+      None => {
+        break;
+      }
+    }
+  }
 }

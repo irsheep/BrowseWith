@@ -50,6 +50,22 @@ pub fn get_browser_list() -> Vec<BrowserSettings> {
   return browsers_found;
 }
 
+pub fn get_program_dir() -> PathBuf {
+  let mut path:String;
+
+  match std::env::var_os("ProgramFiles") {
+    Some(var) => {
+      path = var.into_string().unwrap();
+      path = format!("{}\\BrowseWith", path);
+    },
+    None => {
+      path = String::new();
+    }
+  };
+
+  return PathBuf::from(path);
+}
+
 fn get_file_and_index(file_path:&String) -> (String, i32) {
   let parts:Vec<&str>;
   let source:String;
