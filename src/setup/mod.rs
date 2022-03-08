@@ -18,21 +18,33 @@ pub fn install() {
   windows::install();
 }
 
-pub fn set_default_browser(system_wide:bool) {
+pub fn uninstall() {
+
+  // #[cfg(target_family = "unix")]
+  // unix::uninstall();
+
+  #[cfg(target_family = "windows")]
+  windows::uninstall();
+}
+
+pub fn set_default_browser() {
   // #[cfg(target_os = "linux")]
   // linux::set_default_browser(system_wide);
 
   #[cfg(target_family = "unix")]
-  unix::set_default_browser(system_wide);
+  unix::set_default_browser();
 
   #[cfg(target_family = "windows")]
-  windows::set_default_browser(system_wide);
+  windows::set_default_browser();
 }
 
 pub fn list_default_applications() {
 
   #[cfg(target_family = "unix")]
   unix::list_default_applications();
+
+  #[cfg(target_family = "windows")]
+  windows::list_default_applications();
 }
 
 pub fn is_privileged_user() -> bool {

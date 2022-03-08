@@ -49,7 +49,7 @@ pub fn install() {
 }
 
 #[allow(dead_code)]
-pub fn set_default_browser(_system_wide:bool) {
+pub fn set_default_browser() {
   let apps:DefaultApplications = get_default_applications();
   let install_status:InstalledStatus = check_installation();
 

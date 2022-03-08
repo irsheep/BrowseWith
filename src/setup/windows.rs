@@ -24,7 +24,7 @@ use windows::Networking::{ HostName };
 
 use winreg::enums::{ HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS };
 use winreg::enums::{ RegType, RegDisposition };
-use winreg::{ RegKey, RegValue };
+use winreg::{ HKEY, RegKey, RegValue };
 
 use is_elevated::is_elevated;
 
@@ -46,10 +46,16 @@ use crate::config;
 pub fn install() {
   save_browsewith();
   save_icon();
+  set_registry_settings().unwrap();
+}
+
+pub fn uninstall() {
+  remove_browsewith();
+  unregister_browsewith();
 }
 
 // Attempts to configure BrowseWith as the default web browser
-pub fn set_default_browser(system_wide:bool) {
+pub fn set_default_browser() {
   let browsewith_handlers:[String; 2] = [ "BrowseWith.Assoc.1".to_string(), "BrowseWith.Assoc.1".to_string() ];
   let registered_applications:Result<[String; 2], Error>;
   let association_level:ASSOCIATIONLEVEL;
@@ -62,13 +68,13 @@ pub fn set_default_browser(system_wide:bool) {
   let async_op:IAsyncOperation<RemoteSystem>;
   let result:Result<IAsyncOperation<RemoteLaunchUriStatus>, Error>;
 
-  if system_wide {
+  if is_privileged_user() {
     association_level = AL_MACHINE;
   } else {
     association_level = AL_EFFECTIVE;
   }
 
-  match set_registry_settings(false) {
+  match set_registry_settings() {
     Ok(..) => { },
     Err(..) => {
       println!("Unable to make changes to the registry");
@@ -124,6 +130,26 @@ pub fn set_default_browser(system_wide:bool) {
   }
 }
 
+pub fn list_default_applications() {
+  let default_apps_system:Result<[String; 2], Error>;
+  let default_apps_user:Result<[String; 2], Error>;
+  let apps_system:[String; 2];
+  let apps_user:[String; 2];
+
+  default_apps_system = get_registered_application(AL_MACHINE);
+  default_apps_user = get_registered_application(AL_EFFECTIVE);
+
+  apps_system = default_apps_system.unwrap();
+  apps_user = default_apps_user.unwrap();
+
+  println!("System:\n   http: {}\n   https: {}\nEffective:\n   http: {}\n   https: {}",
+    apps_system[0],
+    apps_system[1],
+    apps_user[0],
+    apps_user[1]
+  );
+}
+
 pub fn is_privileged_user() -> bool {
   return is_elevated();
 }
@@ -148,7 +174,7 @@ pub fn load_icon() {
   }
 }
 
-fn set_registry_settings(system_wide:bool) -> std::io::Result<()> {
+fn set_registry_settings() -> std::io::Result<()> {
   let hkey_root:RegKey;
   let mut sub_key:RegKey;
   let mut reg_capabilities:RegKey;
@@ -156,7 +182,7 @@ fn set_registry_settings(system_wide:bool) -> std::io::Result<()> {
   let mut destination_path:PathBuf;
   // This should be replaced by adding as '%USER_PROFILE%\\.browsewith\\browsewith.ico' to the registry
   // as REG_EXPAND_SZ, but 'RegKey::set_raw_value' is writing mangled characters.
-  let icon_path:PathBuf;
+  let mut icon_path:PathBuf;
   let icon_full_path:&str;
 
   if is_privileged_user() {
@@ -169,6 +195,7 @@ fn set_registry_settings(system_wide:bool) -> std::io::Result<()> {
     destination_path.push("bin");
     icon_path = config::get_config_dir();
   }
+  icon_path.push("browsewith.ico");
 
   destination_path.push("browsewith.exe");
   icon_full_path = icon_path.to_str().unwrap();
@@ -177,43 +204,43 @@ fn set_registry_settings(system_wide:bool) -> std::io::Result<()> {
   (sub_key, _disposition) = hkey_root.create_subkey("Software\\BrowseWith.1")?;
 
   (reg_capabilities, _disposition) = sub_key.create_subkey("Capabilities")?;
-  update_reg(&reg_capabilities, "ApplicationDescription", "Select browser to open URL");
+  registry_add_value(&reg_capabilities, "ApplicationDescription", "Select browser to open URL");
 
   (reg_capabilities, _disposition) = sub_key.create_subkey("Capabilities\\FileAssociations")?;
-  update_reg(&reg_capabilities, ".html", "BrowseWith.Assoc.1");
+  registry_add_value(&reg_capabilities, ".html", "BrowseWith.Assoc.1");
 
   (reg_capabilities, _disposition) = sub_key.create_subkey("Capabilities\\MIMEAssociations")?;
-  update_reg(&reg_capabilities, "application/http", "BrowseWith.Assoc.1");
-  update_reg(&reg_capabilities, "application/https", "BrowseWith.Assoc.1");
+  registry_add_value(&reg_capabilities, "application/http", "BrowseWith.Assoc.1");
+  registry_add_value(&reg_capabilities, "application/https", "BrowseWith.Assoc.1");
 
   (reg_capabilities, _disposition) = sub_key.create_subkey("Capabilities\\UrlAssociations")?;
-  update_reg(&reg_capabilities, "http", "BrowseWith.Assoc.1");
-  update_reg(&reg_capabilities, "https", "BrowseWith.Assoc.1");
+  registry_add_value(&reg_capabilities, "http", "BrowseWith.Assoc.1");
+  registry_add_value(&reg_capabilities, "https", "BrowseWith.Assoc.1");
 
   // ProgID associations
   (sub_key, _disposition) = hkey_root.create_subkey("SOFTWARE\\Classes\\BrowseWith.Assoc.1")?;
-  update_reg(&sub_key, "", "Local web page files");
-  update_reg(&sub_key, "AppUserModelId", "BrowseWith");
+  registry_add_value(&sub_key, "", "Local web page files");
+  registry_add_value(&sub_key, "AppUserModelId", "BrowseWith");
 
   (reg_capabilities, _disposition) = sub_key.create_subkey("CLSID")?;
-  update_reg(&reg_capabilities, "", "{39DCD515-7CD5-4B79-B076-44996FB9D899}");
+  registry_add_value(&reg_capabilities, "", "{39DCD515-7CD5-4B79-B076-44996FB9D899}");
 
   (reg_capabilities, _disposition) = sub_key.create_subkey("Application")?;
-  update_reg(&reg_capabilities, "ApplicationCompany", "irsheep");
-  update_reg(&reg_capabilities, "ApplicationDescription", "Select browser to open URL");
-  update_reg(&reg_capabilities, "ApplicationIcon", icon_full_path );
-  update_reg(&reg_capabilities, "ApplicationName", "BrowseWith");
-  update_reg(&reg_capabilities, "AppUserModelId", "BrowseWith");
+  registry_add_value(&reg_capabilities, "ApplicationCompany", "irsheep");
+  registry_add_value(&reg_capabilities, "ApplicationDescription", "Select browser to open URL");
+  registry_add_value(&reg_capabilities, "ApplicationIcon", icon_full_path );
+  registry_add_value(&reg_capabilities, "ApplicationName", "BrowseWith");
+  registry_add_value(&reg_capabilities, "AppUserModelId", "BrowseWith");
 
   (reg_capabilities, _disposition) = sub_key.create_subkey("DefaultIcon")?;
-  update_reg(&reg_capabilities, "", icon_full_path);
+  registry_add_value(&reg_capabilities, "", icon_full_path);
 
   (reg_capabilities, _disposition) = sub_key.create_subkey("shell\\open\\command")?;
-  update_reg(&reg_capabilities, "", &format!("{} \"%1\"", &destination_path.to_str().unwrap()));
+  registry_add_value(&reg_capabilities, "", &format!("{} \"%1\"", &destination_path.to_str().unwrap()));
 
   // Registered applications
   (sub_key, _disposition) = hkey_root.create_subkey("SOFTWARE\\RegisteredApplications")?;
-  update_reg(&sub_key, "BrowseWith", "Software\\BrowseWith.1\\Capabilities");
+  registry_add_value(&sub_key, "BrowseWith", "Software\\BrowseWith.1\\Capabilities");
 
   return Ok(());
 }
@@ -319,67 +346,6 @@ impl PxStr for str {
   }
 }
 
-fn read_reg_string(path:&RegKey, key:&str) -> String {
-  let value:Result<String, IoError>;
-
-  value = path.get_value(key);
-  match value {
-    Ok(key_value) => {
-      return key_value;
-    },
-    Err(..) => {
-      return String::new();
-    }
-  }
-}
-
-fn update_reg(path:&RegKey, key:&str, value:&str) {
-  let v:Result<String, IoError>;
-
-  v = path.get_value(key);
-  match v {
-    Ok(r) => {
-      if r != value {
-        match path.set_value(key, &value) {
-          Ok(..) => {
-          },
-          Err(error) => {
-            println!("Failed update registry\n{:?}", error);
-          }
-        }
-      }
-    },
-    Err(..) => {
-      path.set_value(key, &value).ok();
-    }
-  }
-
-}
-
-#[allow(unused)]
-fn update_reg_raw(path:&RegKey, key:&str, value:&str, reg_type:RegType) {
-  let v:Result<String, IoError>;
-  let data:RegValue;
-  let byte:Vec<u8>;
-
-  byte = Vec::<u8>::from(value);
-  println!("update_reg_raw \nvalue: {}\nbytes:{:?}", value, byte);
-
-  v = path.get_value(key);
-  match v {
-    Ok(r) => {
-      // if r != value {
-        data = RegValue { vtype: reg_type, bytes: byte };
-        path.set_raw_value(key, &data);
-      // }
-    },
-    Err(..) => {
-      data = RegValue { vtype: reg_type, bytes: byte };
-      path.set_raw_value(key, &data);
-    }
-  }
-}
-
 fn save_browsewith() {
   let mut destination_path:PathBuf;
   let mut destination_file:PathBuf;
@@ -446,13 +412,13 @@ fn add_env_path(browsewith_path:String) {
     sub_key = hkey_root.open_subkey_with_flags("Environment", KEY_ALL_ACCESS).unwrap();
   }
 
-  env_path = read_reg_string(&sub_key, "Path");
+  env_path = registry_read_string(&sub_key, "Path");
 
   if !env_path.contains(&browsewith_path) {
     if env_path.ends_with(";") {
-      update_reg(&sub_key, "Path", (format!("{}{}", env_path, browsewith_path)).as_str()) ;
+      registry_add_value(&sub_key, "Path", (format!("{}{}", env_path, browsewith_path)).as_str()) ;
     } else {
-      update_reg(&sub_key, "Path", (format!("{};{}", env_path, browsewith_path)).as_str()) ;
+      registry_add_value(&sub_key, "Path", (format!("{};{}", env_path, browsewith_path)).as_str()) ;
     }
   }
 }
@@ -472,7 +438,7 @@ fn _remove_env_path() {
   }
 
   sub_key = hkey_root.open_subkey("Environment").unwrap();
-  env_path = read_reg_string(&sub_key, &"Path");
+  env_path = registry_read_string(&sub_key, &"Path");
 
   if env_path.contains("browsewith.exe") {
     path_list = env_path.split(";").collect();
@@ -493,7 +459,7 @@ fn _remove_env_path() {
       i = i + 1;
     }
     path_list.remove(i);
-    update_reg(&sub_key, &"Path", &path_list.join(";"));
+    registry_add_value(&sub_key, &"Path", &path_list.join(";"));
   }
 
 }
@@ -591,6 +557,127 @@ fn copy_dlls() {
       None => {
         break;
       }
+    }
+  }
+}
+
+fn remove_browsewith() {
+  let system_direcotry:PathBuf;
+  let user_directory:PathBuf;
+
+  system_direcotry = config::get_program_dir();
+  user_directory = config::get_config_dir();
+
+  if is_privileged_user() && system_direcotry.is_dir() {
+    println!("Removing directory: {}", system_direcotry.to_str().unwrap());
+    std::fs::remove_dir_all(system_direcotry).unwrap();
+  }
+
+  if user_directory.is_dir() {
+    println!("Removing config dir: {}", user_directory.to_str().unwrap());
+    std::fs::remove_dir_all(user_directory).unwrap();
+  }
+}
+
+fn unregister_browsewith() {
+  let hkey_root:HKEY;
+
+  if is_privileged_user() {
+    hkey_root = HKEY_LOCAL_MACHINE;
+  } else {
+    hkey_root = HKEY_CURRENT_USER;
+  }
+
+  registry_remove_key(hkey_root, "Software\\BrowseWith.1");
+  registry_remove_key(hkey_root, "SOFTWARE\\Classes\\BrowseWith.Assoc.1");
+
+  registry_remove_value(hkey_root, "SOFTWARE\\RegisteredApplications", "browsewith");
+
+}
+
+fn registry_add_value(path:&RegKey, key:&str, value:&str) {
+  let v:Result<String, IoError>;
+
+  v = path.get_value(key);
+  match v {
+    Ok(r) => {
+      if r != value {
+        match path.set_value(key, &value) {
+          Ok(..) => {
+          },
+          Err(error) => {
+            println!("Failed update registry\n{:?}", error);
+          }
+        }
+      }
+    },
+    Err(..) => {
+      path.set_value(key, &value).ok();
+    }
+  }
+
+}
+
+#[allow(unused)]
+fn registry_add_value_raw(path:&RegKey, key:&str, value:&str, reg_type:RegType) {
+  let v:Result<String, IoError>;
+  let data:RegValue;
+  let byte:Vec<u8>;
+
+  byte = Vec::<u8>::from(value);
+  println!("registry_add_value_raw \nvalue: {}\nbytes:{:?}", value, byte);
+
+  v = path.get_value(key);
+  match v {
+    Ok(r) => {
+      // if r != value {
+        data = RegValue { vtype: reg_type, bytes: byte };
+        path.set_raw_value(key, &data);
+      // }
+    },
+    Err(..) => {
+      data = RegValue { vtype: reg_type, bytes: byte };
+      path.set_raw_value(key, &data);
+    }
+  }
+}
+
+fn registry_read_string(path:&RegKey, key:&str) -> String {
+  let value:Result<String, IoError>;
+
+  value = path.get_value(key);
+  match value {
+    Ok(key_value) => {
+      return key_value;
+    },
+    Err(..) => {
+      return String::new();
+    }
+  }
+}
+
+fn registry_remove_key(hkey:HKEY, path:&str) {
+  let hkey_root:RegKey;
+
+  hkey_root = RegKey::predef(hkey);
+  match hkey_root.open_subkey_with_flags(path, KEY_ALL_ACCESS) {
+    Ok(_key) => {
+      hkey_root.delete_subkey_all(path).unwrap();
+    },
+    Err(..) => {
+    }
+  }
+}
+
+fn registry_remove_value(hkey:HKEY, path:&str, value:&str) {
+  let hkey_root:RegKey;
+
+  hkey_root = RegKey::predef(hkey);
+  match hkey_root.open_subkey_with_flags(path, KEY_ALL_ACCESS) {
+    Ok(key) => {
+      match key.delete_value(value) { Ok(..) => {}, Err(..) => {} }
+    },
+    Err(..) => {
     }
   }
 }

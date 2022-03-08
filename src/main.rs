@@ -53,10 +53,10 @@ fn main() {
         setup::install();
         error_code = 0;
       } else if argument_name == "--uninstall" {
-        // TODO: Remove application
+        setup::uninstall();
         error_code = 0;
       } else if argument_name == "--set-as-default-browser" {
-        setup::set_default_browser(setup::is_privileged_user());
+        setup::set_default_browser();
         error_code = 0;
       } else if argument_name == "--status" {
         setup::list_default_applications();
