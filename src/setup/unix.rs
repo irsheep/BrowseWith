@@ -4,6 +4,7 @@ use std::path::{ Path, PathBuf };
 use std::fs::{ write };
 use std::process::{ Command, Output };
 use std::io::{ Error };
+use std::slice::Iter;
 
 use nix::unistd::{ Uid, getuid };
 
@@ -46,6 +47,11 @@ pub fn install() {
   save_browsewith();
   save_icon();
   save_dotdesktop();
+}
+
+pub fn uninstall() {
+  remove_browsewith();
+  unregister_browsewith();
 }
 
 #[allow(dead_code)]
@@ -317,7 +323,7 @@ fn save_dotdesktop() {
         if is_privileged_user() {
           Command::new("update-desktop-database").output().expect("Failed to execute process");
         } else {
-          crate::setup::shared::modify_default_list(&mimeapps_file);
+          modify_default_list(&mimeapps_file, true);
         }
       },
       Err(..) => { println!("Failed to create '{:?}'", dotdesktop_file.to_str()); }
@@ -327,7 +333,7 @@ fn save_dotdesktop() {
 }
 
 // #[allow(dead_code)]
-pub fn modify_default_list(file_path:&Path) {
+pub fn modify_default_list(file_path:&Path, install:bool) {
   let mut ini:Ini;
   let mut iter:Iter<&str>;
   let mut new_value:String;
@@ -350,9 +356,17 @@ pub fn modify_default_list(file_path:&Path) {
         if section.contains_key(key) { 
           match section.get(key) {
             Some(val) => {
-              if !val.contains(config::DESKTOP_FILE) {
+              if !val.contains(config::DESKTOP_FILE) && install {
                 new_value = String::from(val);
                 section.insert(key.to_string(), format!("{}{};", new_value, config::DESKTOP_FILE) );
+                ini_changed = true;
+              } else if val.contains(config::DESKTOP_FILE) && !install {
+                new_value = String::from(val);
+                // new_value.remove_matches(format!("{};", config::DESKTOP_FILE));
+                // offset = new_value.find(config::DESKTOP_FILE).unwrap_or(config::DESKTOP_FILE.len()+1);
+                // new_value.replace_range(offset, "")
+                new_value = remove_from_string(new_value, format!("{};", config::DESKTOP_FILE));
+                section.insert(key.to_string(), new_value);
                 ini_changed = true;
               }
             },
@@ -370,4 +384,73 @@ pub fn modify_default_list(file_path:&Path) {
     ini.write_to_file(file_path).unwrap();
   }
 
+}
+use std::ops::Range;
+
+fn remove_browsewith() {
+  let mut destination:PathBuf;
+
+  if is_privileged_user() {
+    destination = PathBuf::from(config::PATH_EXECUTABLE);
+  } else {
+    destination = config::get_home_dir();
+    #[cfg(target_os = "linux")] destination.push(".local/bin");
+    #[cfg(target_os = "freebsd")] destination.push("bin");
+  }
+
+  destination.push("browsewith");
+  if destination.is_file() {
+    std::fs::remove_file(destination).unwrap();
+  }
+}
+
+fn unregister_browsewith() {
+  let config_dir:PathBuf;
+  let mut desktop_file:PathBuf;
+  let mut mimeapps_file:PathBuf;
+
+  if is_privileged_user() {
+    desktop_file = PathBuf::from(config::PATH_DESKTOP);
+    desktop_file.push(config::DESKTOP_FILE);
+    if desktop_file.is_file() { std::fs::remove_file(desktop_file).unwrap(); }
+    Command::new("update-desktop-database").output().expect("Failed to execute process");
+
+    remove_icon();
+  }
+
+  // ~/.loca/share/applications/browsewith.desktop
+  desktop_file = config::get_home_dir();
+  desktop_file.push(".local/share/applications");
+  desktop_file.push(config::DESKTOP_FILE);
+  if desktop_file.is_file() { std::fs::remove_file(desktop_file).unwrap(); }
+
+  // ~/.config/browsewith
+  config_dir = config::get_config_dir();
+  if config_dir.is_dir() { std::fs::remove_dir_all(config_dir).unwrap(); }
+
+  // ~/.config/mimeapps.list
+  mimeapps_file = config::get_home_dir();
+  mimeapps_file.push(".config");
+  mimeapps_file.push("mimeapps.list");
+  if mimeapps_file.is_file() { modify_default_list(&mimeapps_file, false); }
+}
+
+fn remove_icon() {
+  let mut icon_file:PathBuf;
+  icon_file = PathBuf::from(config::PATH_ICON);
+  icon_file.push(config::ICON_FILE);
+  if icon_file.is_file() {
+    std::fs::remove_file(icon_file).unwrap();
+  }
+}
+
+fn remove_from_string(mut string:String, remove:String) -> String {
+  let offset:usize;
+  let range; //:Range<Idx>;
+
+  offset = string.find(&remove).unwrap_or(string.len());
+  range = Range { start: offset, end: offset + remove.len() };
+
+  string.replace_range(range, "");
+  return string;
 }

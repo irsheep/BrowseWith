@@ -20,8 +20,8 @@ pub fn install() {
 
 pub fn uninstall() {
 
-  // #[cfg(target_family = "unix")]
-  // unix::uninstall();
+  #[cfg(target_family = "unix")]
+  unix::uninstall();
 
   #[cfg(target_family = "windows")]
   windows::uninstall();
@@ -47,7 +47,7 @@ pub fn list_default_applications() {
   windows::list_default_applications();
 }
 
-pub fn is_privileged_user() -> bool {
+pub fn _is_privileged_user() -> bool {
   #[cfg(target_family = "unix")]
   return unix::is_privileged_user();
 
