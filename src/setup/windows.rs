@@ -4,6 +4,7 @@ use std::fs::{ write };
 use std::process::{ exit };
 use std::io::{ Error as IoError };
 use std::ffi::CString;
+use std::convert::TryInto;
 
 use core::slice::Iter;
 
@@ -16,32 +17,20 @@ use windows::Win32::UI::Shell::{ AT_URLPROTOCOL, AL_MACHINE, AL_EFFECTIVE, SHCNE
 use windows::Win32::UI::Shell::{ IApplicationAssociationRegistration, ApplicationAssociationRegistration, ASSOCIATIONLEVEL, SHChangeNotify };
 use windows::Win32::System::Com::{ CLSCTX_ALL };
 use windows::Win32::System::Com::{ CoCreateInstance, CoInitialize };
-
 use windows::System::{ RemoteLauncher, RemoteLaunchUriStatus };
 use windows::System::RemoteSystems::{ RemoteSystemConnectionRequest, RemoteSystem };
 use windows::Foundation::{ IAsyncOperation, AsyncStatus, Uri };
 use windows::Networking::{ HostName };
-
-use winreg::enums::{ HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS };
+use winreg::enums::{ HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, REG_EXPAND_SZ };
 use winreg::enums::{ RegType, RegDisposition };
 use winreg::{ HKEY, RegKey, RegValue };
+use winapi::um::winreg as winreg_api;
+use winapi::um::winuser::SendMessageTimeoutW;
+use winapi::um::winuser::{ HWND_BROADCAST, WM_SETTINGCHANGE, SMTO_ABORTIFHUNG };
 
 use is_elevated::is_elevated;
 
 use crate::config;
-/*
-  Microsoft documentation
-  https://docs.microsoft.com/en-us/windows/win32/shell/default-programs
-  https://docs.microsoft.com/en-us/windows/uwp/launch-resume/launch-settings-app
-
-  Rust documentation to invoke Windows API, using 'windows-rs'
-  https://microsoft.github.io/windows-docs-rs/doc/windows/System/struct.RemoteLauncher.html
-  https://microsoft.github.io/windows-docs-rs/doc/windows/System/struct.RemoteLaunchUriStatus.html
-  https://microsoft.github.io/windows-docs-rs/doc/windows/System/RemoteSystems/struct.RemoteSystemConnectionRequest.html
-  https://microsoft.github.io/windows-docs-rs/doc/windows/Foundation/struct.IAsyncOperation.html
-  https://microsoft.github.io/windows-docs-rs/doc/windows/Foundation/struct.AsyncStatus.html
-  https://microsoft.github.io/windows-docs-rs/doc/windows/Networking/struct.HostName.html
-*/
 
 pub fn install() {
   save_browsewith();
@@ -416,31 +405,35 @@ fn add_env_path(browsewith_path:String) {
 
   if !env_path.contains(&browsewith_path) {
     if env_path.ends_with(";") {
-      registry_add_value(&sub_key, "Path", (format!("{}{}", env_path, browsewith_path)).as_str()) ;
+      registry_add_value_raw(&sub_key, "Path", (format!("{}{}", env_path, browsewith_path)).as_str(), REG_EXPAND_SZ) ;
     } else {
-      registry_add_value(&sub_key, "Path", (format!("{};{}", env_path, browsewith_path)).as_str()) ;
+      registry_add_value_raw(&sub_key, "Path", (format!("{};{}", env_path, browsewith_path)).as_str(), REG_EXPAND_SZ) ;
     }
+    notify_env_change();
   }
 }
 
-fn _remove_env_path() {
+fn remove_env_path() {
   let hkey_root:RegKey;
   let sub_key:RegKey;
   let env_path:String;
   let mut path_list:Vec<&str>;
   let mut i:usize;
   let mut iterator:Iter<&str>;
+  let mut update_registry:bool;
   
   if is_privileged_user() {
     hkey_root = RegKey::predef(HKEY_LOCAL_MACHINE);
+    sub_key = hkey_root.open_subkey_with_flags("SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment", KEY_ALL_ACCESS).unwrap();
   } else {
     hkey_root = RegKey::predef(HKEY_CURRENT_USER);
+    sub_key = hkey_root.open_subkey_with_flags("Environment", KEY_ALL_ACCESS).unwrap();
   }
 
-  sub_key = hkey_root.open_subkey("Environment").unwrap();
-  env_path = registry_read_string(&sub_key, &"Path");
+  env_path = registry_read_string(&sub_key, "Path");
+  update_registry = false;
 
-  if env_path.contains("browsewith.exe") {
+  if env_path.contains(".browsewith") || env_path.contains("BrowseWith") {
     path_list = env_path.split(";").collect();
 
     i = 0;
@@ -448,7 +441,8 @@ fn _remove_env_path() {
     loop {
       match iterator.next() {
         Some(value) => {
-          if value.contains("browsewith.exe") {
+          if value.contains(".browsewith") || value.contains("BrowseWith") {
+            update_registry = true;
             break;
           }
         },
@@ -459,9 +453,25 @@ fn _remove_env_path() {
       i = i + 1;
     }
     path_list.remove(i);
-    registry_add_value(&sub_key, &"Path", &path_list.join(";"));
+    if update_registry {
+      registry_add_value_raw(&sub_key, &"Path", &path_list.join(";"), REG_EXPAND_SZ);
+      notify_env_change();
+    }
   }
+}
 
+fn notify_env_change() {
+  unsafe {
+    SendMessageTimeoutW(
+      HWND_BROADCAST,
+      WM_SETTINGCHANGE,
+      0,
+      ("Environment".as_ptr() as i64).try_into().unwrap(),
+      SMTO_ABORTIFHUNG,
+      5000,
+      std::ptr::null_mut()
+    );
+  }
 }
 
 fn copy_dlls() {
@@ -577,6 +587,8 @@ fn remove_browsewith() {
     println!("Removing config dir: {}", user_directory.to_str().unwrap());
     std::fs::remove_dir_all(user_directory).unwrap();
   }
+
+  remove_env_path();
 }
 
 fn unregister_browsewith() {
@@ -618,26 +630,25 @@ fn registry_add_value(path:&RegKey, key:&str, value:&str) {
 
 }
 
-#[allow(unused)]
-fn registry_add_value_raw(path:&RegKey, key:&str, value:&str, reg_type:RegType) {
+// See 'registry_add_value_raw' at the end of this module.
+fn _registry_add_value_raw(path:&RegKey, key:&str, value:&str, reg_type:RegType) {
   let v:Result<String, IoError>;
   let data:RegValue;
-  let byte:Vec<u8>;
+  let bytes:Vec<u8>;
 
-  byte = Vec::<u8>::from(value);
-  println!("registry_add_value_raw \nvalue: {}\nbytes:{:?}", value, byte);
+  bytes = Vec::<u8>::from(format!("{}\0", value));
 
   v = path.get_value(key);
   match v {
-    Ok(r) => {
-      // if r != value {
-        data = RegValue { vtype: reg_type, bytes: byte };
-        path.set_raw_value(key, &data);
-      // }
+    Ok(_r) => {
+      data = RegValue { vtype: reg_type, bytes: bytes };
+      match path.set_raw_value(key, &data) {
+        Ok(()) => { println!("winreg::set_raw_value successful"); },
+        Err(e) => { println!("Error: {:?}", e);}
+      }
     },
     Err(..) => {
-      data = RegValue { vtype: reg_type, bytes: byte };
-      path.set_raw_value(key, &data);
+      println!("Error updating registry");
     }
   }
 }
@@ -680,4 +691,40 @@ fn registry_remove_value(hkey:HKEY, path:&str, value:&str) {
     Err(..) => {
     }
   }
+}
+
+/*
+  There seems to be a mismatch with RegValue.bytes, 
+  which is a Vec<u8> but in winreg::RegSetValueExW the 
+  length of lpData (cbData) is expected to be calculated 
+  from a double word Vec<u32>
+*/
+use winapi::shared::minwindef::{ BYTE, DWORD };
+use std::ffi::OsStr;
+use std::os::windows::ffi::{ OsStrExt };
+
+fn registry_add_value_raw(hkey:&RegKey, path_and_key:&str, value:&str, reg_type:RegType) {
+  let key:Vec<u16>;
+  let data:Vec<u16>;
+
+  key = to_utf16(path_and_key);
+  data = to_utf16(value);
+
+  unsafe {
+    winreg_api::RegSetValueExW(
+      hkey.raw_handle(),
+      key.as_ptr(),
+      0,
+      reg_type as DWORD,
+      data.as_ptr() as *const BYTE,
+      (data.len()*2) as u32 // It does look beautiful ....
+    );
+  }
+}
+
+fn to_utf16<P: AsRef<OsStr>>(s: P) -> Vec<u16> {
+  s.as_ref()
+    .encode_wide()
+    .chain(Some(0).into_iter())
+    .collect()
 }

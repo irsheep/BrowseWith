@@ -1,6 +1,3 @@
-#[cfg(target_os = "linux")]
-mod linux;
-
 #[cfg(target_family = "unix")]
 mod unix;
 

@@ -67,13 +67,12 @@ pub fn get_configuration() -> Configuration {
 
   // Create configuration directory and file if required
   if !config_directory_buf.is_dir() {
-    println!("Configuration directory not found");
     match fs::create_dir(config_directory_buf.as_path()) {
-      e => println!("{:?}", e)
+      Ok(..) => { },
+      Err(e) => { println!("{:?}", e); }
     };
   }
   if !config_file_buf.is_file() {
-    println!("Configuration file not found");
     create_configuration_file(&config_file_buf);
   }
 
@@ -161,7 +160,7 @@ fn save_configuration(file_path:&PathBuf, data:&Configuration) {
   file_handle = File::create(file_path).unwrap();
   writer = BufWriter::new(file_handle);
   match serde_json::to_writer_pretty(writer, &data) {
-    Ok(..) => { println!("Created {}", file_path.to_str().unwrap()); },
+    Ok(..) => { println!("Created default configuration: {}", file_path.to_str().unwrap()); },
     Err(..) => { println!("Failed to create {}", file_path.to_str().unwrap()); }
   };
 }

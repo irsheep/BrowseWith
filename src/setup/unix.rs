@@ -5,6 +5,7 @@ use std::fs::{ write };
 use std::process::{ Command, Output };
 use std::io::{ Error };
 use std::slice::Iter;
+use std::ops::Range;
 
 use nix::unistd::{ Uid, getuid };
 
@@ -332,7 +333,6 @@ fn save_dotdesktop() {
 
 }
 
-// #[allow(dead_code)]
 pub fn modify_default_list(file_path:&Path, install:bool) {
   let mut ini:Ini;
   let mut iter:Iter<&str>;
@@ -362,9 +362,6 @@ pub fn modify_default_list(file_path:&Path, install:bool) {
                 ini_changed = true;
               } else if val.contains(config::DESKTOP_FILE) && !install {
                 new_value = String::from(val);
-                // new_value.remove_matches(format!("{};", config::DESKTOP_FILE));
-                // offset = new_value.find(config::DESKTOP_FILE).unwrap_or(config::DESKTOP_FILE.len()+1);
-                // new_value.replace_range(offset, "")
                 new_value = remove_from_string(new_value, format!("{};", config::DESKTOP_FILE));
                 section.insert(key.to_string(), new_value);
                 ini_changed = true;
@@ -385,7 +382,6 @@ pub fn modify_default_list(file_path:&Path, install:bool) {
   }
 
 }
-use std::ops::Range;
 
 fn remove_browsewith() {
   let mut destination:PathBuf;
