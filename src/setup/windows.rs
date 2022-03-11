@@ -35,6 +35,7 @@ use crate::config;
 pub fn install() {
   save_browsewith();
   save_icon();
+  save_close_icon();
   set_registry_settings().unwrap();
 }
 
@@ -388,6 +389,33 @@ fn save_icon() {
   }
 }
 
+fn save_close_icon() {
+  let mut icon_file:PathBuf;
+  let icon_raw:&[u8];
+  let icon_bytes:Bytes;
+
+  icon_raw = include_bytes!("../../resources/window-close-symbolic.png");
+  icon_bytes = Bytes::from(&icon_raw[..]);
+
+  if is_privileged_user() {
+    icon_file = config::get_program_dir();
+  } else {
+    icon_file = config::get_config_dir();
+  }
+
+  if !icon_file.is_dir() {
+    std::fs::create_dir_all(&icon_file).unwrap();
+  }
+
+  icon_file.push("window-close-symbolic.png");
+  if !icon_file.is_file() {
+    match write(&icon_file, icon_bytes) {
+      Ok(..) => {},
+      Err(..) => { println!("Failed to create '{:?}'", icon_file.to_str()); }
+    }
+  }
+}
+
 fn add_env_path(browsewith_path:String) {
   let hkey_root:RegKey;
   let sub_key:RegKey;
@@ -478,69 +506,40 @@ fn copy_dlls() {
   let current_path:PathBuf = PathBuf::from(std::env::current_dir().unwrap());
   let dll_list:Vec<&str> = [
     "iconv.dll",
-    "icudata67.dll",
-    "icui18n67.dll",
-    "icuio67.dll",
-    "icutest67.dll",
-    "icutu67.dll",
-    "icuuc67.dll",
-    "libasprintf-0.dll",
     "libatk-1.0-0.dll",
-    "libatomic-1.dll",
     "libbz2-1.dll",
     "libcairo-2.dll",
     "libcairo-gobject-2.dll",
-    "libcairo-script-interpreter-2.dll",
     "libepoxy-0.dll",
     "libexpat-1.dll",
     "libffi-6.dll",
     "libfontconfig-1.dll",
     "libfreetype-6.dll",
     "libfribidi-0.dll",
-    "libgailutil-3-0.dll",
     "libgcc_s_seh-1.dll",
-    "libgdk-3-0.dll",
     "libgdk_pixbuf-2.0-0.dll",
-    "libgettextlib-0-21.dll",
-    "libgettextpo-0.dll",
-    "libgettextsrc-0-21.dll",
+    "libgdk-3-0.dll",
     "libgio-2.0-0.dll",
     "libglib-2.0-0.dll",
     "libgmodule-2.0-0.dll",
     "libgobject-2.0-0.dll",
-    "libgthread-2.0-0.dll",
     "libgtk-3-0.dll",
     "libharfbuzz-0.dll",
-    "libharfbuzz-icu-0.dll",
-    "libharfbuzz-subset-0.dll",
     "libintl-8.dll",
     "libjpeg-62.dll",
-    "liblcms2-2.dll",
-    "libopenjp2.dll",
     "libpango-1.0-0.dll",
     "libpangocairo-1.0-0.dll",
     "libpangoft2-1.0-0.dll",
     "libpangowin32-1.0-0.dll",
     "libpcre-1.dll",
-    "libpcre16-0.dll",
-    "libpcre32-0.dll",
-    "libpcrecpp-0.dll",
-    "libpcreposix-0.dll",
     "libpixman-1-0.dll",
     "libpng16-16.dll",
-    "libpoppler-106.dll",
     "libssp-0.dll",
-    "libstdc++-6.dll",
-    "libtermcap-0.dll",
-    "libtextstyle-0.dll",
     "libtiff-5.dll",
-    "libtiffxx-5.dll",
-    "libturbojpeg.dll",
     "libwinpthread-1.dll",
+    "window-close-symbolic-ltr",
     "zlib1.dll"
    ].to_vec(); 
-
-
 
   let mut iter:Iter<&str>;
   let mut destination:PathBuf;

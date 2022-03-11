@@ -162,12 +162,42 @@ fn show_application_window(configuration:config::Configuration) {
       window_box.add(&hostinfo_box);
     }
 
-    // Build a title bar
-    header_bar = HeaderBar::builder()
-      .title("BrowseWith")
-      .decoration_layout("menu:close")
-      .show_close_button(true)
-      .build();
+    #[cfg(target_family = "unix")] {
+      // Build a title bar
+      header_bar = HeaderBar::builder()
+        .title("BrowseWith")
+        .decoration_layout("menu:close")
+        .show_close_button(true)
+        .build();
+    }
+    #[cfg(target_family = "windows")] {
+      let app_clone:Application;
+      let close_box:Box;
+      let close_button:Button;
+      let close_image:Image;
+      let mut icon_file:PathBuf;
+
+      header_bar = HeaderBar::builder()
+        .title("BrowseWith")
+        .build();
+
+      icon_file = config::get_program_dir();
+      if !icon_file.is_dir() {
+        icon_file = config::get_config_dir();
+      }
+      icon_file.push("window-close-symbolic.png");
+        
+      close_image = Image::from_file(icon_file);
+      app_clone = app.clone();
+      close_box = Box::new(Orientation::Horizontal, 1);
+      close_button = Button::builder()
+        .image(&close_image)
+        .border_width(0).relief(gtk::ReliefStyle::None)
+        .build();
+      close_button.connect_clicked(move |_| {close_app(&app_clone);});
+      close_box.add(&close_button);
+      header_bar.pack_end(&close_box);
+    }
 
     // Traits from GtkWindowExt
     // window.set_keep_above(true);
@@ -223,6 +253,9 @@ fn button_clicked<'a>(application:&Application, browser_settings:&'a config::Bro
     .stdout(Stdio::null())
     .spawn()
     .expect("failed to execute process");
+  application.quit();
+}
+fn close_app<'a>(application:&'a Application) {
   application.quit();
 }
 
