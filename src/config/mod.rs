@@ -1,10 +1,12 @@
 use dirs;
+use std::{ include_bytes };
 
 use std::path::{ PathBuf };
-
 use std::fs;
 use std::fs::{ File };
 use std::io::{ BufReader, BufWriter };
+
+use gtk::glib::{ Bytes };
 
 use serde::{Deserialize, Serialize};
 
@@ -28,12 +30,31 @@ use serde::{Deserialize, Serialize};
 #[cfg(target_os = "freebsd")] pub static PATH_ICON:&str = "/usr/local/share/icons/hicolor/scalable/apps";
 
 #[derive(Serialize, Deserialize)]
+pub struct ButtonProperties {
+  pub width: i32,
+  pub height: i32,
+  pub spacing: i32,
+  pub per_row:i32,
+  pub show_label: bool,
+  pub show_image: bool,
+  pub image_position: String
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WindowProperties {
+  pub always_ontop: bool,
+  pub position: String,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Settings {
-  pub set_default: i32,
+  // pub set_default: i32,
   pub homepage: String,
   pub host_info: bool,
-  pub icons_per_row: i32,
-  pub icon_spacing: i32
+  // pub icons_per_row: i32,
+  // pub icon_spacing: i32
+  pub buttons: ButtonProperties,
+  pub window: WindowProperties
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -120,7 +141,10 @@ fn create_configuration_file(config_full_path:&PathBuf) {
 }
 
 fn get_default_settings() -> Configuration {
+  let mut default_settings:Configuration;
   let installed_browsers:Vec<BrowserSettings>;
+  let config_raw:&[u8];
+  let config_bytes:Bytes;
 
   #[cfg(target_family = "unix")] {
     installed_browsers = unix::get_browser_list();
@@ -129,16 +153,11 @@ fn get_default_settings() -> Configuration {
     installed_browsers = windows::get_browser_list();
   }
 
-  let default_settings = Configuration {
-    settings: Settings {
-      set_default: 1,
-      homepage: "about:blank".to_string(),
-      host_info: true,
-      icons_per_row: 3,
-      icon_spacing: 5
-    },
-    browsers_list: installed_browsers
-  };
+  config_raw = include_bytes!("../../resources/config.json");
+  config_bytes = Bytes::from(config_raw);
+  default_settings = serde_json::from_slice(&config_bytes).unwrap();
+  default_settings.browsers_list = installed_browsers;
+
   return default_settings;
 }
 

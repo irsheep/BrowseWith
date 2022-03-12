@@ -1,6 +1,6 @@
 // #![windows_subsystem = "windows"]
 use gtk::prelude::*;
-use gtk::{ HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, ImageBuilder };
+use gtk::{ HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, ImageBuilder, WindowPosition };
 use gtk::gio::{ ApplicationFlags };
 use gtk::pango::{ EllipsizeMode };
 
@@ -79,7 +79,7 @@ fn main() {
       // Read configuration and store settings in 'thread_local'
       configuration = config::get_configuration();
       if !valid_url { URL.with(|v| { *v.borrow_mut() = configuration.settings.homepage.clone(); }); }
-      ICON_SPACING.with(|v| { *v.borrow_mut() = configuration.settings.icon_spacing.clone(); });
+      ICON_SPACING.with(|v| { *v.borrow_mut() = configuration.settings.buttons.spacing.clone(); });
 
       #[cfg(target_family = "windows")] hide_console_window();
       show_application_window(configuration);
@@ -126,19 +126,28 @@ fn show_application_window(configuration:config::Configuration) {
     let hostinfo_box:Box;
     let mut icons_row:Box = Box::new(Orientation::Horizontal, 0);
     let mut icon_counter:i32 = 1;
-    let icons_per_row:i32 = configuration.settings.icons_per_row;
-    let icon_spacing:i32 = configuration.settings.icon_spacing;
-    let icon_spacing_top:i32 = configuration.settings.icon_spacing;
-
+    let icons_per_row:i32 = configuration.settings.buttons.per_row;
+    let icon_spacing:i32 = configuration.settings.buttons.spacing;
+    let icon_spacing_top:i32 = configuration.settings.buttons.spacing;
+    let button_width:i32 = configuration.settings.buttons.width;
+    let button_height:i32 = configuration.settings.buttons.height;
+    let window_always_ontop:bool = configuration.settings.window.always_ontop;
+    let window_position:WindowPosition;
     let button_margin_default:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing_top, right: 0, bottom: 0 };
     let button_margin_last:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing, right: icon_spacing, bottom: 0 };
+
+    window_position = match configuration.settings.window.position.as_str() {
+      "none" => WindowPosition::None,
+      "mouse" => WindowPosition::Mouse,
+      _ => WindowPosition::Center
+    };
 
     let window = ApplicationWindow::builder()
       .application(app)
       .title("BrowseWith")
-      .default_width(180 + icon_spacing * 2)
-      .default_height(70)
-      // .window_position(WindowPosition::Center)
+      .default_width(button_width + icon_spacing * 2)
+      .default_height(button_height)
+      .window_position(window_position)
       .build();
 
     // Add all browsers as icons to a Box widget, creating a new child Box widget
@@ -146,11 +155,11 @@ fn show_application_window(configuration:config::Configuration) {
     icons_box.add(&icons_row);
     for browser in configuration.browsers_list.clone() {
       if icon_counter % icons_per_row == 0 {
-        button_with_image(&app, &browser, &icons_row, button_margin_last);
+        button_with_image(&app, &icons_row, &configuration.settings.buttons, &browser,  button_margin_last);
         icons_row = Box::new(Orientation::Horizontal, 0);
         icons_box.add(&icons_row);
       } else {
-        button_with_image(&app, &browser, &icons_row, button_margin_default);
+        button_with_image(&app, &icons_row, &configuration.settings.buttons, &browser, button_margin_default);
       }
       icon_counter = icon_counter + 1;
     }
@@ -158,8 +167,14 @@ fn show_application_window(configuration:config::Configuration) {
 
     // Check if we need to add taget URL host information
     if configuration.settings.host_info {
-      hostinfo_box = diplay_host_info(180 * icons_per_row + icon_spacing * icons_per_row - icon_spacing);
+      hostinfo_box = diplay_host_info(button_width * icons_per_row + icon_spacing * icons_per_row - icon_spacing);
       window_box.add(&hostinfo_box);
+    } else {
+      window_box.add(
+        &Box::builder()
+          .margin_bottom(configuration.settings.buttons.spacing)
+          .build()
+      );
     }
 
     #[cfg(target_family = "unix")] {
@@ -200,7 +215,7 @@ fn show_application_window(configuration:config::Configuration) {
     }
 
     // Traits from GtkWindowExt
-    // window.set_keep_above(true);
+    window.set_keep_above(window_always_ontop);
     window.set_resizable(false);
     window.set_titlebar(Some(&header_bar));
 
@@ -215,28 +230,38 @@ fn show_application_window(configuration:config::Configuration) {
   application.run();
 }
 
-fn button_with_image(application:&Application, browser_settings:&config::BrowserSettings, box_object:&Box, margins:ButtonMargins) {
+fn button_with_image(application:&Application, box_object:&Box, button_properties:&config::ButtonProperties, browser_settings:&config::BrowserSettings, margins:ButtonMargins) {
   let browser_settings_clone:config::BrowserSettings;
   let application_clone:Application;
   let image:Image;
+  let image_position:PositionType;
   let button:Button;
 
   // Clone application and browser_settings so we can pass them to
   // the closure in button connect_clicked
   application_clone = application.clone();
   browser_settings_clone = browser_settings.clone();
+  image_position = match button_properties.image_position.as_str() {
+    "top" => PositionType::Top,
+    "bottom" => PositionType::Bottom,
+    "right" => PositionType::Right,
+    _ => PositionType::Left
+  };
 
   image = get_icon_image(&browser_settings.icon);
 
   button = Button::builder()
-    .width_request(180).height_request(60)
-    .image(&image).always_show_image(true).image_position(PositionType::Left)
-    .label(&browser_settings.title)
+    .width_request(button_properties.width).height_request(button_properties.height)
+    .image(&image).always_show_image(button_properties.show_image).image_position(image_position)
     .margin_start(margins.left)
     .margin_top(margins.top)
     .margin_end(margins.right)
     .margin_bottom(margins.bottom)
     .build();
+  if button_properties.show_label || !button_properties.show_image {
+    button.set_label(&browser_settings.title);
+    button.set_use_underline(true);
+  }
   button.connect_clicked(move |_| {button_clicked(&application_clone, &browser_settings_clone)});
 
   // Add to the main window
@@ -255,6 +280,7 @@ fn button_clicked<'a>(application:&Application, browser_settings:&'a config::Bro
     .expect("failed to execute process");
   application.quit();
 }
+#[cfg(target_family = "windows")]
 fn close_app<'a>(application:&'a Application) {
   application.quit();
 }

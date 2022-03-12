@@ -13,17 +13,17 @@ pub fn get_browser_list() -> Vec<BrowserSettings> {
   let mut browsers_settings:BrowserSettings;
 
   let mut browser_list:Vec<BrowserSettings> = [
-    BrowserSettings { title: "Brave".to_string(), executable: "brave-browser".to_string(), arguments: "".to_string(), icon: "brave-browser.png".to_string() },
-    BrowserSettings { title: "Brave Incognito".to_string(), executable: "brave-browser".to_string(), arguments: "--incognito".to_string(), icon: "brave-browser.png".to_string() },
-    BrowserSettings { title: "Brave TOR".to_string(), executable: "brave-browser".to_string(), arguments: "--tor".to_string(), icon: "brave-browser.png".to_string() },
-    BrowserSettings { title: "Edge".to_string(), executable: "Microsoft\\Edge\\Application\\msedge.exe".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
-    BrowserSettings { title: "Edge InPrivate".to_string(), executable: "Microsoft\\Edge\\Application\\msedge.exe".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
-    BrowserSettings { title: "Firefox".to_string(), executable: "firefox".to_string(), arguments: "-new-tab".to_string(), icon: "firefox.png".to_string() },
-    BrowserSettings { title: "Firefox Private".to_string(), executable: "firefox".to_string(), arguments: "-private-window".to_string(), icon: "firefox.png".to_string() },
-    BrowserSettings { title: "Google".to_string(), executable: "google-chrome".to_string(), arguments: "".to_string(), icon: "google-chrome.png".to_string() },
-    BrowserSettings { title: "Google Incognito".to_string(), executable: "google-chrome".to_string(), arguments: "--incognito".to_string(), icon: "google-chrome.png".to_string() },
-    BrowserSettings { title: "Chromium".to_string(), executable: "chromium-browser".to_string(), arguments: "".to_string(), icon: "chromium-browser.png".to_string() },
-    BrowserSettings { title: "Chromium Incognito".to_string(), executable: "chromium-browser".to_string(), arguments: "--incognito".to_string(), icon: "chromium-browser.png".to_string() },
+    BrowserSettings { title: "_Brave".to_string(), executable: "brave-browser".to_string(), arguments: "".to_string(), icon: "brave-browser.png".to_string() },
+    BrowserSettings { title: "Brave Incog_nito".to_string(), executable: "brave-browser".to_string(), arguments: "--incognito".to_string(), icon: "brave-browser.png".to_string() },
+    BrowserSettings { title: "Brave _TOR".to_string(), executable: "brave-browser".to_string(), arguments: "--tor".to_string(), icon: "brave-browser.png".to_string() },
+    BrowserSettings { title: "_Edge".to_string(), executable: "Microsoft\\Edge\\Application\\msedge.exe".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
+    BrowserSettings { title: "Edge In_Private".to_string(), executable: "Microsoft\\Edge\\Application\\msedge.exe".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
+    BrowserSettings { title: "_Firefox".to_string(), executable: "firefox".to_string(), arguments: "-new-tab".to_string(), icon: "firefox.png".to_string() },
+    BrowserSettings { title: "Firefox Pri_vate".to_string(), executable: "firefox".to_string(), arguments: "-private-window".to_string(), icon: "firefox.png".to_string() },
+    BrowserSettings { title: "_Google".to_string(), executable: "google-chrome".to_string(), arguments: "".to_string(), icon: "google-chrome.png".to_string() },
+    BrowserSettings { title: "Google _Incognito".to_string(), executable: "google-chrome".to_string(), arguments: "--incognito".to_string(), icon: "google-chrome.png".to_string() },
+    BrowserSettings { title: "_Chromium".to_string(), executable: "chromium-browser".to_string(), arguments: "".to_string(), icon: "chromium-browser.png".to_string() },
+    BrowserSettings { title: "Chromium Incognit_o".to_string(), executable: "chromium-browser".to_string(), arguments: "--incognito".to_string(), icon: "chromium-browser.png".to_string() },
     // { title: "".to_string(), executable: "".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
   ].to_vec();
 

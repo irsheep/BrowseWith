@@ -1,0 +1,20 @@
+{
+    "settings": {
+        "homepage": "about:blank",
+        "host_info": true,
+        "buttons": {
+            "width": 180,
+            "height": 70,
+            "spacing": 5,
+            "per_row": 3,
+            "show_label": true,
+            "show_image": true,
+            "image_position": "left"
+        },
+        "window": {
+            "always_ontop": true,
+            "position": "center"
+        }
+    },
+    "browsers_list": []
+}
