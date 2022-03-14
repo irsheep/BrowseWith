@@ -28,9 +28,25 @@ use winapi::um::winreg as winreg_api;
 use winapi::um::winuser::SendMessageTimeoutW;
 use winapi::um::winuser::{ HWND_BROADCAST, WM_SETTINGCHANGE, SMTO_ABORTIFHUNG };
 
+use bitflags::bitflags;
 use is_elevated::is_elevated;
 
 use crate::config;
+
+bitflags! {
+  struct InstalledStatus:u8 {
+    const HAS_SYSTEM_EXECUTABLE = 0x01;
+    const HAS_USER_EXECUTABLE = 0x02;
+    const HAS_SYSTEM_DLLS = 0x04;
+    const HAS_USER_DLLS = 0x08;
+    const HAS_SYSTEM_ICON = 0x10;
+    const HAS_USER_ICON = 0x20;
+    const HAS_CONFIG = 0x40;
+    const EXECUTABLE_OK = Self::HAS_SYSTEM_EXECUTABLE.bits | Self::HAS_USER_EXECUTABLE.bits;
+    const DOTDESKTOP_OK = Self::HAS_SYSTEM_DLLS.bits | Self::HAS_USER_DLLS.bits;
+    const ICON_OK = Self::HAS_SYSTEM_ICON.bits | Self::HAS_USER_ICON.bits;
+  }
+}
 
 pub fn install() {
   save_browsewith();
@@ -132,12 +148,81 @@ pub fn list_default_applications() {
   apps_system = default_apps_system.unwrap();
   apps_user = default_apps_user.unwrap();
 
-  println!("System:\n   http: {}\n   https: {}\nEffective:\n   http: {}\n   https: {}",
+  println!("Default browser:\n System:\n   http: {}\n   https: {}\n Effective:\n   http: {}\n   https: {}\n",
     apps_system[0],
     apps_system[1],
     apps_user[0],
     apps_user[1]
   );
+
+  check_application_files();
+}
+
+pub fn check_application_files() {
+  let install_status:InstalledStatus;
+  let install_status_system:&str;
+  let install_status_user:&str;
+
+  install_status = check_installation();
+  install_status_system = if 
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_EXECUTABLE) &&
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_DLLS) &&
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_ICON)
+      { "Ok" }
+    else if
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_EXECUTABLE) ||
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_DLLS) ||
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_ICON)
+      { "Incomplete" }
+    else { "Missing" };
+  install_status_user = if 
+      install_status.intersects(InstalledStatus::HAS_USER_EXECUTABLE) &&
+      install_status.intersects(InstalledStatus::HAS_USER_DLLS) &&
+      install_status.intersects(InstalledStatus::HAS_USER_ICON)
+      { "Ok" }
+    else if
+      install_status.intersects(InstalledStatus::HAS_USER_EXECUTABLE) ||
+      install_status.intersects(InstalledStatus::HAS_USER_DLLS) ||
+      install_status.intersects(InstalledStatus::HAS_USER_ICON)
+      { "Incomplete" }
+    else { "Missing" };
+
+  // println!("status: {:?}", install_status);
+
+  //Executable, Icon, .desktop
+  println!("System configuration [{}]:", install_status_system);
+  print_status(config::get_program_dir().to_str().unwrap(), "browsewith.exe", "Executable\t");
+  print_status(config::get_program_dir().to_str().unwrap(), "browsewith.ico", "Icon\t\t");
+  print_dll_status(config::get_program_dir().to_str().unwrap(), install_status, InstalledStatus::HAS_SYSTEM_DLLS);
+
+  println!("User configuration [{}]:", install_status_user);
+  print_status(config::get_config_dir().to_str().unwrap(), "bin\\browsewith.exe", "Executable\t");
+  print_status(config::get_config_dir().to_str().unwrap(), "browsewith.ico", "Icon\t\t");
+  print_dll_status(config::get_config_dir().to_str().unwrap(), install_status, InstalledStatus::HAS_USER_DLLS);
+  print_status(config::get_config_dir().to_str().unwrap(), "config.json", "Configuration\t");
+}
+
+fn print_status(path:&str, filename:&str, text:&str) {
+  let mut file:PathBuf;
+  let mut status:&str;
+
+  file = PathBuf::from(path);
+  file.push(filename);
+  
+  status = "NOT_FOUND";
+  if file.is_file() {
+    status = "OK"
+  }
+  println!("  {} [{}]\t{}", text, status, file.to_str().unwrap());
+}
+fn print_dll_status(path:&str, install_status:InstalledStatus, status_check:InstalledStatus) {
+  let mut status:&str;
+
+  status = "MISSING_DLLS";
+  if install_status.intersects(status_check) {
+    status = "OK";
+  }
+  println!("  {} [{}]\t{}\\bin\\*.dll", "DLLs\t\t", status, path);
 }
 
 pub fn is_privileged_user() -> bool {
@@ -162,6 +247,56 @@ pub fn load_icon() {
     icon_pixbuf = Pixbuf::from_file(icon_file).unwrap();
     gtk::Window::set_default_icon(&icon_pixbuf);
   }
+}
+
+fn check_installation() -> InstalledStatus {
+
+  let mut status:InstalledStatus = InstalledStatus::empty();
+  let mut system_executable:PathBuf;
+  let mut user_executable:PathBuf;
+  let system_dlls:PathBuf;
+  let mut user_dlls:PathBuf;
+  let mut system_icon:PathBuf;
+  let mut user_icon:PathBuf;
+  let mut config_file:PathBuf;
+  let system_dll_status;
+  let user_dll_status;
+
+  system_executable = config::get_program_dir();
+  system_icon = config::get_program_dir();
+  system_dlls = config::get_program_dir();
+
+  user_executable = config::get_config_dir();
+  user_icon = config::get_config_dir();
+  user_dlls = config::get_config_dir();
+  user_dlls.push("bin");
+
+  config_file = config::get_config_dir();
+
+  // If browsewith is in the system or local user path
+  system_executable.push("browsewith.exe");
+  user_executable.push("bin\\browsewith.exe");
+
+  system_dll_status = check_dlls(system_dlls);
+  user_dll_status = check_dlls(user_dlls);
+
+  // Icon file
+  system_icon.push(config::ICON_FILE);
+  user_icon.push(config::ICON_FILE);
+
+  // Configuration file
+  config_file.push(config::CONFIG_FILE);
+
+  // Set the appropriate bitmask.
+  if system_executable.is_file() { status = status | InstalledStatus::HAS_SYSTEM_EXECUTABLE; }
+  if user_executable.is_file() { status = status | InstalledStatus::HAS_USER_EXECUTABLE; }
+  if system_dll_status.installed { status = status | InstalledStatus::HAS_SYSTEM_DLLS; }
+  if user_dll_status.installed { status = status | InstalledStatus::HAS_USER_DLLS; }
+  if system_icon.is_file() { status = status | InstalledStatus::HAS_SYSTEM_ICON; }
+  if user_icon.is_file() { status = status | InstalledStatus::HAS_USER_ICON; }
+  if config_file.is_file() { status = status | InstalledStatus::HAS_CONFIG; }
+
+  return status;
 }
 
 fn set_registry_settings() -> std::io::Result<()> {
@@ -502,9 +637,21 @@ fn notify_env_change() {
   }
 }
 
-fn copy_dlls() {
-  let current_path:PathBuf = PathBuf::from(std::env::current_dir().unwrap());
-  let dll_list:Vec<&str> = [
+struct DllInstallStatus<'a> {
+  pub installed: bool,
+  pub missing_list: Vec<&'a str>
+}
+impl DllInstallStatus<'_> {
+  #[allow(dead_code)]
+  pub fn new() -> Self {
+    return Self {
+      installed: false,
+      missing_list: Vec::new()
+    }
+  }
+}
+pub fn required_dlls() -> Vec<&'static str> {
+  return [
     "iconv.dll",
     "libatk-1.0-0.dll",
     "libbz2-1.dll",
@@ -537,14 +684,46 @@ fn copy_dlls() {
     "libssp-0.dll",
     "libtiff-5.dll",
     "libwinpthread-1.dll",
-    "window-close-symbolic-ltr",
     "zlib1.dll"
    ].to_vec(); 
+}
+fn check_dlls(current_path:PathBuf) -> DllInstallStatus<'static> {
+  let dll_list:Vec<&str>;
+  let mut iter:Iter<&str>;
+  let mut check_dll:PathBuf;
+  let mut dll_install_status:DllInstallStatus;
 
+  dll_install_status = DllInstallStatus::new();
+  dll_install_status.installed = true;
+
+  dll_list = required_dlls();
+  iter = dll_list.iter();
+  loop {
+    match iter.next() {
+      Some(dll) => {
+        check_dll = (&current_path).to_path_buf();
+        check_dll.push(dll);
+        if !check_dll.is_file() {
+          dll_install_status.installed = false;
+          dll_install_status.missing_list.push(dll);
+        }
+      },
+      None => {
+        break;
+      }
+    }
+  }
+
+  return dll_install_status;
+}
+fn copy_dlls() {
+  let current_path:PathBuf = PathBuf::from(std::env::current_dir().unwrap());
+  let dll_list:Vec<&str>;
   let mut iter:Iter<&str>;
   let mut destination:PathBuf;
   let mut source:PathBuf;
 
+  dll_list = required_dlls();
   iter = dll_list.iter();
   loop {
     match iter.next() {

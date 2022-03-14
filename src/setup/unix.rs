@@ -80,9 +80,72 @@ pub fn set_default_browser() {
 pub fn list_default_applications() {
   let apps:DefaultApplications = get_default_applications();
   
-  println!("Web Browser: {}\nProtocol handlers:\n   http: {}\n   https: {}",
+  println!("Defaults:\n Web Browser: {}\n Protocol handlers:\n   http: {}\n   https: {}\n",
     apps.browser, apps.http, apps.https
   );
+
+  check_application_files();
+}
+
+pub fn check_application_files() {
+  let install_status:InstalledStatus;
+  let install_status_system:&str;
+  let install_status_user:&str;
+
+  install_status = check_installation();
+  install_status_system = if 
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_EXECUTABLE) &&
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_DOTDESKTOP) &&
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_ICON)
+      { "Ok" }
+    else if
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_EXECUTABLE) ||
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_DOTDESKTOP) ||
+      install_status.intersects(InstalledStatus::HAS_SYSTEM_ICON)
+      { "Incomplete" }
+    else { "Missing" };
+  install_status_user = if 
+      install_status.intersects(InstalledStatus::HAS_USER_EXECUTABLE) &&
+      install_status.intersects(InstalledStatus::HAS_USER_DOTDESKTOP) &&
+      install_status.intersects(InstalledStatus::HAS_USER_ICON)
+      { "Ok" }
+    else if 
+      install_status.intersects(InstalledStatus::HAS_USER_EXECUTABLE) ||
+      install_status.intersects(InstalledStatus::HAS_USER_DOTDESKTOP) ||
+      install_status.intersects(InstalledStatus::HAS_USER_ICON)
+      { "Incomplete" }
+    else { "Missing" };
+
+  // println!("status: {:?}", install_status);
+
+  //Executable, Icon, .desktop
+  println!("System configuration [{}]:", install_status_system);
+  print_status(config::PATH_EXECUTABLE, "browsewith", "Executable\t");
+  print_status(config::PATH_DESKTOP, "browsewith.desktop", ".desktop\t");
+  print_status(config::PATH_ICON, "browsewith.ico", "Icon\t\t");
+
+  if !is_privileged_user() {
+    println!("User configuration [{}]:", install_status_user);
+    #[cfg(target_os = "linux")] print_status(config::get_home_dir().to_str().unwrap(), ".local/bin/browsewith", "Executable\t");
+    #[cfg(target_os = "freebsd")] print_status(config::get_home_dir().to_str().unwrap(), "bin/browsewith", "Executable\t");
+    print_status(config::get_home_dir().to_str().unwrap(), ".local/share/applications/browsewith.desktop", ".desktop\t");
+    print_status(config::get_config_dir().to_str().unwrap(), "browsewith.ico", "Icon\t\t");
+    print_status(config::get_config_dir().to_str().unwrap(), "config.json", "Configuration\t");
+  }
+}
+
+fn print_status(path:&str, filename:&str, text:&str) {
+  let mut file:PathBuf;
+  let mut status:&str;
+
+  file = PathBuf::from(path);
+  file.push(filename);
+  status = "NOT_FOUND";
+
+  if file.is_file() {
+    status = "OK"
+  }
+  println!("  {} [{}] {}", text, status, file.to_str().unwrap());
 }
 
 pub fn is_privileged_user() -> bool {
