@@ -1,5 +1,5 @@
 use std::{ include_bytes };
-use std::path::{ Path, PathBuf };
+use std::path::{ PathBuf };
 use std::fs::{ write };
 
 use gtk::gdk_pixbuf::{ Pixbuf };
@@ -9,8 +9,7 @@ use crate::config;
 
 // This function can be removed from unix and windows files as they are identical
 pub fn _load_icon() {
-  let mut home_dir_buf:PathBuf;
-  let icon_file_path:&Path;
+  let icon_file_path:PathBuf;
   let icon_file:Pixbuf;
   let icon_raw:&[u8];
   let icon_bytes:Bytes;
@@ -20,11 +19,9 @@ pub fn _load_icon() {
   icon_bytes = Bytes::from(&icon_raw[..]);
 
   // Create the icon file in the configuration directory, if it doesn't exist
-  home_dir_buf = config::get_config_dir();
-  home_dir_buf.push(config::ICON_FILE);
-  icon_file_path = home_dir_buf.as_path();
+  icon_file_path = config::get_icon_file(false);
   if !icon_file_path.is_file() {
-    match write(icon_file_path, icon_bytes) {
+    match write(&icon_file_path, icon_bytes) {
       Ok(..) => {},
       Err(..) => println!("Failed to create icon file")
     }

@@ -10,7 +10,7 @@ TryExec=browsewith
 Exec=_SYSTEM_PATH_/browsewith %u
 Terminal=false
 
-Icon=_CONFIG_PATH_/browsewith.ico
+Icon=_ICON_FILE_
 
 Type=Application
 Categories=Network;

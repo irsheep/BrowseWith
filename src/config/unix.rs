@@ -3,6 +3,11 @@ use std::fs::{ read_to_string };
 use std::str::{ Lines };
 
 use crate::config::{ BrowserSettings };
+use crate::config::{ get_home_dir };
+use crate::config::{
+  PATH_EXECUTABLE, PATH_DESKTOP, PATH_ICON, 
+  BW_EXECUTABLE, BW_CONFIG, BW_ICON_APPLICATION, BW_DOTDESKTOP
+};
 
 pub fn get_browser_list() -> Vec<BrowserSettings> {
   let mut file_data:String;
@@ -61,4 +66,76 @@ pub fn get_browser_list() -> Vec<BrowserSettings> {
     }
   }
   return browsers_found;
+}
+
+pub fn get_executable_path(is_admin:bool) -> PathBuf {
+  let mut path:PathBuf;
+  if is_admin { 
+    path = PathBuf::from(PATH_EXECUTABLE);
+  } else {
+    path = get_home_dir();
+    #[cfg(target_os = "linux")] path.push(".local/bin");
+    #[cfg(target_os = "freebsd")] path.push("bin");
+  }
+  return path;
+}
+pub fn get_executable_file(is_admin:bool) -> PathBuf {
+  let mut file:PathBuf;
+  file = get_executable_path(is_admin);
+  file.push(BW_EXECUTABLE);
+  return file;
+}
+
+pub fn get_icon_path(is_admin:bool) -> PathBuf {
+  let mut path:PathBuf;
+  if is_admin {
+    path = PathBuf::from(PATH_ICON);
+  } else {
+    path = get_configuration_path();
+    path.push("icons");
+  }
+  return path;
+}
+pub fn get_icon_file(is_admin:bool) -> PathBuf {
+  let mut file:PathBuf;
+  file = get_icon_path(is_admin);
+  file.push(BW_ICON_APPLICATION);
+  return file;
+}
+
+pub fn get_dotdesktop_path(is_admin:bool) -> PathBuf {
+  let mut path:PathBuf;
+  if is_admin {
+    path = PathBuf::from(PATH_DESKTOP);
+  } else {
+    path = get_home_dir();
+    path.push(".local/share/applications");
+  }
+  return path;
+}
+pub fn get_dotdesktop_file(is_admin:bool) -> PathBuf {
+  let mut file:PathBuf;
+  file = get_dotdesktop_path(is_admin);
+  file.push(BW_DOTDESKTOP);
+  return file;
+}
+
+pub fn get_configuration_path() -> PathBuf {
+  let mut path:PathBuf;
+  path = get_home_dir();
+  #[cfg(not(target_os = "macos"))] {
+    path.push(".config");
+    path.push("browsewith");
+  }
+  #[cfg(target_os = "macos")] {
+    path.push("Applications");
+    path.push("BrowseWith.app");
+  }
+  return path;
+}
+pub fn get_configuration_file() -> PathBuf {
+  let mut file:PathBuf;
+  file = get_configuration_path();
+  file.push(BW_CONFIG);
+  return file;
 }

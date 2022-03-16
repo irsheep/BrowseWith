@@ -1,7 +1,8 @@
-
 use std::path::{ PathBuf };
 
 use crate::config::{ BrowserSettings };
+use crate::config::{ get_home_dir };
+use crate::config::{ BW_EXECUTABLE, BW_CONFIG, BW_ICON_APPLICATION };
 
 pub fn get_browser_list() -> Vec<BrowserSettings> {
   let program_files_list:[String; 2];
@@ -50,7 +51,7 @@ pub fn get_browser_list() -> Vec<BrowserSettings> {
   return browsers_found;
 }
 
-pub fn get_program_dir() -> PathBuf {
+pub fn get_programfiles_path() -> PathBuf {
   let mut path:String;
 
   match std::env::var_os("ProgramFiles") {
@@ -79,4 +80,51 @@ fn get_file_and_index(file_path:&String) -> (String, i32) {
     icon_index = 0;
   }
   return (source, icon_index);
+}
+
+pub fn get_executable_path(is_admin:bool) -> PathBuf {
+  let mut path:PathBuf;
+  if is_admin {
+    path = get_programfiles_path();
+  } else {
+    path = get_configuration_path();
+    path.push("bin");
+  }
+  return path;
+}
+pub fn get_executable_file(is_admin:bool) -> PathBuf {
+  let mut path:PathBuf;
+  path = get_executable_path(is_admin);
+  path.push(BW_EXECUTABLE);
+  return path;
+}
+
+pub fn get_icon_path(is_admin:bool) -> PathBuf {
+  let mut path:PathBuf;
+  if is_admin {
+    path = get_executable_path(is_admin);
+  } else {
+    path = get_configuration_path();
+    path.push("icons");
+  }
+  return path;
+}
+pub fn get_icon_file(is_admin:bool) -> PathBuf {
+  let mut path:PathBuf;
+  path = get_icon_path(is_admin);
+  path.push(BW_ICON_APPLICATION);
+  return path;
+}
+
+pub fn get_configuration_path() -> PathBuf {
+  let mut path:PathBuf;
+  path = get_home_dir();
+  path.push(".browsewith");
+  return path;
+}
+pub fn get_configuration_file() -> PathBuf {
+  let mut path:PathBuf;
+  path = get_configuration_path();
+  path.push(BW_CONFIG);
+  return path;
 }

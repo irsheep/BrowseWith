@@ -49,9 +49,12 @@ bitflags! {
 }
 
 pub fn install() {
-  save_browsewith();
-  save_icon();
-  save_close_icon();
+  let is_admin:bool;
+
+  is_admin = is_privileged_user();
+  save_browsewith(is_admin);
+  save_icon(is_admin);
+  save_close_icon(is_admin);
   set_registry_settings().unwrap();
 }
 
@@ -87,7 +90,6 @@ pub fn set_default_browser() {
       exit(100);
     }
   }
-  // exit(666);
 
   // Check if we are the default browser
   registered_applications = get_registered_application(association_level);
@@ -187,42 +189,42 @@ pub fn check_application_files() {
       { "Incomplete" }
     else { "Missing" };
 
-  // println!("status: {:?}", install_status);
 
   //Executable, Icon, .desktop
   println!("System configuration [{}]:", install_status_system);
-  print_status(config::get_program_dir().to_str().unwrap(), "browsewith.exe", "Executable\t");
-  print_status(config::get_program_dir().to_str().unwrap(), "browsewith.ico", "Icon\t\t");
-  print_dll_status(config::get_program_dir().to_str().unwrap(), install_status, InstalledStatus::HAS_SYSTEM_DLLS);
+  print_status(config::get_executable_path(true), config::BW_EXECUTABLE, "Executable\t");
+  print_status(config::get_icon_path(true), config::BW_ICON_APPLICATION, "Icon\t\t");
+  print_dll_status(config::get_executable_path(true), install_status, InstalledStatus::HAS_SYSTEM_DLLS);
 
   println!("User configuration [{}]:", install_status_user);
-  print_status(config::get_config_dir().to_str().unwrap(), "bin\\browsewith.exe", "Executable\t");
-  print_status(config::get_config_dir().to_str().unwrap(), "browsewith.ico", "Icon\t\t");
-  print_dll_status(config::get_config_dir().to_str().unwrap(), install_status, InstalledStatus::HAS_USER_DLLS);
-  print_status(config::get_config_dir().to_str().unwrap(), "config.json", "Configuration\t");
+  print_status(config::get_executable_path(false), config::BW_EXECUTABLE, "Executable\t");
+  print_status(config::get_icon_path(false), config::BW_ICON_APPLICATION, "Icon\t\t");
+  print_dll_status(config::get_executable_path(false), install_status, InstalledStatus::HAS_USER_DLLS);
+  
+  print_status(config::get_configuration_path(), config::BW_CONFIG, "Configuration\t");
 }
 
-fn print_status(path:&str, filename:&str, text:&str) {
+fn print_status(path:PathBuf, filename:&str, text:&str) {
   let mut file:PathBuf;
   let mut status:&str;
 
-  file = PathBuf::from(path);
+  file = PathBuf::from(path.to_str().unwrap());
   file.push(filename);
-  
   status = "NOT_FOUND";
+
   if file.is_file() {
     status = "OK"
   }
-  println!("  {} [{}]\t{}", text, status, file.to_str().unwrap());
+  println!("  {} [{}] {}", text, status, file.to_str().unwrap());
 }
-fn print_dll_status(path:&str, install_status:InstalledStatus, status_check:InstalledStatus) {
+fn print_dll_status(path:PathBuf, install_status:InstalledStatus, status_check:InstalledStatus) {
   let mut status:&str;
 
   status = "MISSING_DLLS";
   if install_status.intersects(status_check) {
     status = "OK";
   }
-  println!("  {} [{}]\t{}\\bin\\*.dll", "DLLs\t\t", status, path);
+  println!("  {} [{}]\t{}\\bin\\*.dll", "DLLs\t\t", status, path.to_str().unwrap());
 }
 
 pub fn is_privileged_user() -> bool {
@@ -234,11 +236,9 @@ pub fn load_icon() {
   let icon_pixbuf:Pixbuf;
 
   // Get the icon file, preferring the icon in 'Program Files'
-  icon_file = PathBuf::from(config::get_program_dir());
-  icon_file.push(config::ICON_FILE);
+  icon_file = config::get_icon_file(true);
   if !icon_file.is_file() {
-    icon_file = config::get_config_dir();
-    icon_file.push(config::ICON_FILE);
+    icon_file = config::get_icon_file(false);
   }
 
   // Set the application Icon if browsewith.ico is found.
@@ -250,42 +250,29 @@ pub fn load_icon() {
 }
 
 fn check_installation() -> InstalledStatus {
-
   let mut status:InstalledStatus = InstalledStatus::empty();
-  let mut system_executable:PathBuf;
-  let mut user_executable:PathBuf;
+  let system_executable:PathBuf;
+  let user_executable:PathBuf;
   let system_dlls:PathBuf;
-  let mut user_dlls:PathBuf;
-  let mut system_icon:PathBuf;
-  let mut user_icon:PathBuf;
-  let mut config_file:PathBuf;
+  let user_dlls:PathBuf;
+  let system_icon:PathBuf;
+  let user_icon:PathBuf;
+  let config_file:PathBuf;
   let system_dll_status;
   let user_dll_status;
 
-  system_executable = config::get_program_dir();
-  system_icon = config::get_program_dir();
-  system_dlls = config::get_program_dir();
+  system_executable = config::get_executable_file(true);
+  system_icon = config::get_icon_file(true);
 
-  user_executable = config::get_config_dir();
-  user_icon = config::get_config_dir();
-  user_dlls = config::get_config_dir();
-  user_dlls.push("bin");
-
-  config_file = config::get_config_dir();
-
-  // If browsewith is in the system or local user path
-  system_executable.push("browsewith.exe");
-  user_executable.push("bin\\browsewith.exe");
-
+  system_dlls = config::get_executable_path(true);
+  user_dlls =  config::get_executable_path(false);
   system_dll_status = check_dlls(system_dlls);
   user_dll_status = check_dlls(user_dlls);
 
-  // Icon file
-  system_icon.push(config::ICON_FILE);
-  user_icon.push(config::ICON_FILE);
+  user_executable = config::get_executable_file(false);
+  user_icon = config::get_icon_file(false);
 
-  // Configuration file
-  config_file.push(config::CONFIG_FILE);
+  config_file = config::get_configuration_file();
 
   // Set the appropriate bitmask.
   if system_executable.is_file() { status = status | InstalledStatus::HAS_SYSTEM_EXECUTABLE; }
@@ -304,25 +291,22 @@ fn set_registry_settings() -> std::io::Result<()> {
   let mut sub_key:RegKey;
   let mut reg_capabilities:RegKey;
   let mut _disposition:RegDisposition;
-  let mut destination_path:PathBuf;
-  // This should be replaced by adding as '%USER_PROFILE%\\.browsewith\\browsewith.ico' to the registry
-  // as REG_EXPAND_SZ, but 'RegKey::set_raw_value' is writing mangled characters.
-  let mut icon_path:PathBuf;
+  let executable_path:PathBuf;
+  let icon_path:PathBuf;
   let icon_full_path:&str;
+  let is_admin:bool;
 
   if is_privileged_user() {
     hkey_root = RegKey::predef(HKEY_LOCAL_MACHINE);
-    destination_path = config::get_program_dir();
-    icon_path = config::get_program_dir();
+    is_admin = true;
   } else {
     hkey_root = RegKey::predef(HKEY_CURRENT_USER);
-    destination_path = config::get_config_dir();
-    destination_path.push("bin");
-    icon_path = config::get_config_dir();
+    is_admin = false;
   }
-  icon_path.push("browsewith.ico");
 
-  destination_path.push("browsewith.exe");
+  executable_path = config::get_executable_file(is_admin);
+  icon_path = config::get_icon_file(is_admin);
+
   icon_full_path = icon_path.to_str().unwrap();
 
   // Default program
@@ -361,7 +345,7 @@ fn set_registry_settings() -> std::io::Result<()> {
   registry_add_value(&reg_capabilities, "", icon_full_path);
 
   (reg_capabilities, _disposition) = sub_key.create_subkey("shell\\open\\command")?;
-  registry_add_value(&reg_capabilities, "", &format!("{} \"%1\"", &destination_path.to_str().unwrap()));
+  registry_add_value(&reg_capabilities, "", &format!("{} \"%1\"", &executable_path.to_str().unwrap()));
 
   // Registered applications
   (sub_key, _disposition) = hkey_root.create_subkey("SOFTWARE\\RegisteredApplications")?;
@@ -440,12 +424,12 @@ unsafe fn read_to_string(ptr: PWSTR) -> String {
   let mut len = 0usize;
   let mut cursor = ptr;
   loop {
-      let val = cursor.0.read();
-      if val == 0 {
-          break;
-      }
-      len += 1;
-      cursor = PWSTR(cursor.0.add(1));
+    let val = cursor.0.read();
+    if val == 0 {
+      break;
+    }
+    len += 1;
+    cursor = PWSTR(cursor.0.add(1));
   }
 
   let slice = std::slice::from_raw_parts(ptr.0, len);
@@ -471,82 +455,65 @@ impl PxStr for str {
   }
 }
 
-fn save_browsewith() {
-  let mut destination_path:PathBuf;
-  let mut destination_file:PathBuf;
+fn save_browsewith(is_admin:bool) {
+  let mut file_location:PathBuf;
 
-  if is_privileged_user() {
-    destination_path = config::get_program_dir();
-  } else {
-    destination_path = config::get_config_dir();
-    destination_path.push("bin");
+  file_location = config::get_executable_path(is_admin);
+  if !file_location.is_dir() {
+    std::fs::create_dir_all(&file_location).unwrap();
   }
 
-  if !destination_path.is_dir() {
-    std::fs::create_dir_all(&destination_path).unwrap();
-  }
-
-  destination_file = PathBuf::from(destination_path.to_str().unwrap());
-  destination_file.push("browsewith.exe");
+  file_location = config::get_executable_file(is_admin);
   // Always copy in case its an update
-  std::fs::copy(std::env::current_exe().unwrap(), &destination_file).unwrap();
+  std::fs::copy(std::env::current_exe().unwrap(), &file_location).unwrap();
 
-  if destination_file.exists() {
+  if file_location.exists() {
     copy_dlls();
-    add_env_path(destination_path.to_str().unwrap().to_string());
+    add_env_path(file_location.to_str().unwrap().to_string());
   }
 }
 
-fn save_icon() {
-  let mut icon_file:PathBuf;
+fn save_icon(is_admin:bool) {
+  let mut file_location:PathBuf;
   let icon_raw:&[u8];
   let icon_bytes:Bytes;
 
   icon_raw = include_bytes!("../../resources/browsewith.ico");
   icon_bytes = Bytes::from(&icon_raw[..]);
 
-  if is_privileged_user() {
-    icon_file = config::get_program_dir();
-  } else {
-    icon_file = config::get_config_dir();
+  file_location = config::get_icon_path(is_admin);
+  if !file_location.is_dir() {
+    std::fs::create_dir_all(&file_location).unwrap();
   }
 
-  if !icon_file.is_dir() {
-    std::fs::create_dir_all(&icon_file).unwrap();
-  }
-
-  icon_file.push(config::ICON_FILE);
-  if !icon_file.is_file() {
-    match write(&icon_file, icon_bytes) {
+  file_location = config::get_icon_file(is_admin);
+  if !file_location.is_file() {
+    match write(&file_location, icon_bytes) {
       Ok(..) => {},
-      Err(..) => { println!("Failed to create '{:?}'", icon_file.to_str()); }
+      Err(..) => { println!("Failed to create '{:?}'", file_location.to_str()); }
     }
   }
 }
 
-fn save_close_icon() {
-  let mut icon_file:PathBuf;
+fn save_close_icon(is_admin:bool) {
+  let mut file_location:PathBuf;
   let icon_raw:&[u8];
   let icon_bytes:Bytes;
 
   icon_raw = include_bytes!("../../resources/window-close-symbolic.png");
   icon_bytes = Bytes::from(&icon_raw[..]);
 
-  if is_privileged_user() {
-    icon_file = config::get_program_dir();
-  } else {
-    icon_file = config::get_config_dir();
+  file_location = config::get_icon_path(is_admin);
+
+  if !file_location.is_dir() {
+    std::fs::create_dir_all(&file_location).unwrap();
   }
 
-  if !icon_file.is_dir() {
-    std::fs::create_dir_all(&icon_file).unwrap();
-  }
-
-  icon_file.push("window-close-symbolic.png");
-  if !icon_file.is_file() {
-    match write(&icon_file, icon_bytes) {
+  file_location.push(config::BW_ICON_CLOSE);
+  if !file_location.is_file() {
+    match write(&file_location, icon_bytes) {
       Ok(..) => {},
-      Err(..) => { println!("Failed to create '{:?}'", icon_file.to_str()); }
+      Err(..) => { println!("Failed to create '{:?}'", file_location.to_str()); }
     }
   }
 }
@@ -642,7 +609,6 @@ struct DllInstallStatus<'a> {
   pub missing_list: Vec<&'a str>
 }
 impl DllInstallStatus<'_> {
-  #[allow(dead_code)]
   pub fn new() -> Self {
     return Self {
       installed: false,
@@ -728,12 +694,7 @@ fn copy_dlls() {
   loop {
     match iter.next() {
       Some(dll) => {
-        if is_privileged_user() {
-          destination = PathBuf::from(config::get_program_dir());
-        } else {
-          destination = config::get_config_dir();
-          destination.push("bin");
-        }
+        destination = config::get_executable_path(is_privileged_user());
         destination.push(dll);
 
         source = (&current_path).to_path_buf();
@@ -753,8 +714,8 @@ fn remove_browsewith() {
   let system_direcotry:PathBuf;
   let user_directory:PathBuf;
 
-  system_direcotry = config::get_program_dir();
-  user_directory = config::get_config_dir();
+  system_direcotry = config::get_executable_path(true);
+  user_directory = config::get_configuration_path();
 
   if is_privileged_user() && system_direcotry.is_dir() {
     println!("Removing directory: {}", system_direcotry.to_str().unwrap());
@@ -805,7 +766,6 @@ fn registry_add_value(path:&RegKey, key:&str, value:&str) {
       path.set_value(key, &value).ok();
     }
   }
-
 }
 
 // See 'registry_add_value_raw' at the end of this module.

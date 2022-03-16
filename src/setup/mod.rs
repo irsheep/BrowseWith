@@ -4,10 +4,7 @@ mod unix;
 #[cfg(target_family = "windows")]
 mod windows;
 
-mod shared;
-
 pub fn install() {
-
   #[cfg(target_family = "unix")]
   unix::install();
   
@@ -16,7 +13,6 @@ pub fn install() {
 }
 
 pub fn uninstall() {
-
   #[cfg(target_family = "unix")]
   unix::uninstall();
 
@@ -25,9 +21,6 @@ pub fn uninstall() {
 }
 
 pub fn set_default_browser() {
-  // #[cfg(target_os = "linux")]
-  // linux::set_default_browser(system_wide);
-
   #[cfg(target_family = "unix")]
   unix::set_default_browser();
 
@@ -36,20 +29,11 @@ pub fn set_default_browser() {
 }
 
 pub fn list_default_applications() {
-
   #[cfg(target_family = "unix")]
   unix::list_default_applications();
 
   #[cfg(target_family = "windows")]
   windows::list_default_applications();
-}
-
-pub fn _is_privileged_user() -> bool {
-  #[cfg(target_family = "unix")]
-  return unix::is_privileged_user();
-
-  #[cfg(target_family = "windows")]
-  return windows::is_privileged_user();
 }
 
 pub fn load_icon() {
@@ -58,5 +42,4 @@ pub fn load_icon() {
 
   #[cfg(target_family = "windows")]
   windows::load_icon();
-
 }

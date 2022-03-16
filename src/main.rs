@@ -196,11 +196,11 @@ fn show_application_window(configuration:config::Configuration) {
         .title("BrowseWith")
         .build();
 
-      icon_file = config::get_program_dir();
+      icon_file = config::get_icon_path(true);
       if !icon_file.is_dir() {
-        icon_file = config::get_config_dir();
+        icon_file = config::get_icon_path(false);
       }
-      icon_file.push("window-close-symbolic.png");
+      icon_file.push(config::BW_ICON_CLOSE);
         
       close_image = Image::from_file(icon_file);
       app_clone = app.clone();

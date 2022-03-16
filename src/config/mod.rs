@@ -13,20 +13,21 @@ use serde::{Deserialize, Serialize};
 #[cfg(target_family = "unix")] mod unix;
 #[cfg(target_family = "windows")] mod windows;
 
-#[allow(dead_code)] pub static OS_CONFIG_TOOL:&str = "xdg-settings";
-#[allow(dead_code)] pub static DESKTOP_FILE:&str = "browsewith.desktop";
-#[allow(dead_code)] pub static ICON_FILE:&str = "browsewith.ico";
-#[allow(dead_code)] pub static CONFIG_FILE:&str = "config.json";
-#[allow(dead_code)] pub static PATH_EXECUTABLE:&str = "/usr/local/bin";
+#[cfg(target_family = "unix")] pub static OS_CONFIG_TOOL:&str = "xdg-settings";
 
-#[allow(dead_code)]
+#[cfg(target_family = "windows")] pub static BW_EXECUTABLE:&str = "browsewith.exe";
+#[cfg(target_family = "unix")] pub static BW_EXECUTABLE:&str = "browsewith";
+#[cfg(target_family = "unix")] pub static BW_DOTDESKTOP:&str = "browsewith.desktop";
+pub static BW_CONFIG:&str = "config.json";
+pub static BW_ICON_APPLICATION:&str = "browsewith.ico";
+#[cfg(target_family = "windows")] pub static BW_ICON_CLOSE:&str = "close.png";
+
+#[cfg(target_family = "unix")] pub static PATH_EXECUTABLE:&str = "/usr/local/bin";
+
 #[cfg(target_os = "linux")] pub static PATH_DESKTOP:&str = "/usr/share/applications";
-#[allow(dead_code)]
-#[cfg(target_os = "freebsd")] pub static PATH_DESKTOP:&str = "/usr/local/share/applications";
-
-#[allow(dead_code)]
 #[cfg(target_os = "linux")] pub static PATH_ICON:&str = "/usr/share/icons/hicolor/scalable/apps";
-#[allow(dead_code)]
+
+#[cfg(target_os = "freebsd")] pub static PATH_DESKTOP:&str = "/usr/local/share/applications";
 #[cfg(target_os = "freebsd")] pub static PATH_ICON:&str = "/usr/local/share/icons/hicolor/scalable/apps";
 
 #[derive(Serialize, Deserialize)]
@@ -101,7 +102,6 @@ pub fn get_configuration() -> Configuration {
   return configuration;
 }
 
-#[cfg(target_family = "unix")]
 pub fn get_home_dir() -> PathBuf {
   return dirs::home_dir().unwrap();
 }
@@ -111,8 +111,14 @@ pub fn get_config_dir() -> PathBuf {
 
   home_dir = dirs::home_dir().unwrap();
   #[cfg(target_family = "unix")] {
-    home_dir.push(".config");
-    home_dir.push("browsewith");
+    #[cfg(not(target_os = "macos"))] {
+      home_dir.push(".config");
+      home_dir.push("browsewith");
+    }
+    #[cfg(target_os = "macos")] {
+      home_dir.push("Applications");
+      home_dir.push("BrowseWith.app");
+    }
   }
   #[cfg(target_family = "windows")] {
     home_dir.push(".browsewith");
@@ -127,11 +133,6 @@ pub fn get_config_file() -> PathBuf {
   config_file.push("config.json");
 
   return config_file.to_path_buf();
-}
-
-#[cfg(target_family = "windows")] 
-pub fn get_program_dir() -> PathBuf {
-  return windows::get_program_dir();
 }
 
 fn create_configuration_file(config_full_path:&PathBuf) {
@@ -182,4 +183,40 @@ fn save_configuration(file_path:&PathBuf, data:&Configuration) {
     Ok(..) => { println!("Created default configuration: {}", file_path.to_str().unwrap()); },
     Err(..) => { println!("Failed to create {}", file_path.to_str().unwrap()); }
   };
+}
+
+pub fn get_executable_path(is_admin:bool) -> PathBuf {
+  #[cfg(target_family = "unix")] return unix::get_executable_path(is_admin);
+  #[cfg(target_family = "windows")] return windows::get_executable_path(is_admin);
+}
+pub fn get_executable_file(is_admin:bool) -> PathBuf {
+  #[cfg(target_family = "unix")] return unix::get_executable_file(is_admin);
+  #[cfg(target_family = "windows")] return windows::get_executable_file(is_admin);
+}
+
+pub fn get_icon_path(is_admin:bool) -> PathBuf {
+  #[cfg(target_family = "unix")] return unix::get_icon_path(is_admin);
+  #[cfg(target_family = "windows")] return windows::get_icon_path(is_admin);
+}
+pub fn get_icon_file(is_admin:bool) -> PathBuf {
+  #[cfg(target_family = "unix")] return unix::get_icon_file(is_admin);
+  #[cfg(target_family = "windows")] return windows::get_icon_file(is_admin);
+}
+
+#[cfg(target_family = "unix")]
+pub fn get_dotdesktop_path(is_admin:bool) -> PathBuf {
+  return unix::get_dotdesktop_path(is_admin);
+}
+#[cfg(target_family = "unix")]
+pub fn get_dotdesktop_file(is_admin:bool) -> PathBuf {
+   return unix::get_dotdesktop_file(is_admin);
+}
+
+pub fn get_configuration_path() -> PathBuf {
+  #[cfg(target_family = "unix")] return unix::get_configuration_path();
+  #[cfg(target_family = "windows")] return windows::get_configuration_path();
+}
+pub fn get_configuration_file() -> PathBuf {
+  #[cfg(target_family = "unix")] return unix::get_configuration_file();
+  #[cfg(target_family = "windows")] return windows::get_configuration_file();
 }

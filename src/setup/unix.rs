@@ -31,7 +31,6 @@ bitflags! {
   }
 }
 
-#[allow(dead_code)]
 struct DefaultApplications {
   pub browser: String,
   pub http: String,
@@ -55,7 +54,6 @@ pub fn uninstall() {
   unregister_browsewith();
 }
 
-#[allow(dead_code)]
 pub fn set_default_browser() {
   let apps:DefaultApplications = get_default_applications();
   let install_status:InstalledStatus = check_installation();
@@ -66,15 +64,14 @@ pub fn set_default_browser() {
      install_status.intersects(InstalledStatus::ICON_OK) 
   {
     // Web and HTTP seem to be linked, but we change both just in case
-    if apps.browser != config::DESKTOP_FILE { change_default_app(DefaultApplicationType::Web); }
-    if apps.http != config::DESKTOP_FILE { change_default_app(DefaultApplicationType::Http); }
-    if apps.https != config::DESKTOP_FILE { change_default_app(DefaultApplicationType::Https); }
+    if apps.browser != config::BW_DOTDESKTOP { change_default_app(DefaultApplicationType::Web); }
+    if apps.http != config::BW_DOTDESKTOP { change_default_app(DefaultApplicationType::Http); }
+    if apps.https != config::BW_DOTDESKTOP { change_default_app(DefaultApplicationType::Https); }
   } else if !check_desktop_configuration_tool() {
     println!("This application requries '{}' to be installed on this system, in order to make the required changes", config::OS_CONFIG_TOOL);
   } else {
     println!("One or more required files are missing, please run 'browsewith --install' to copy the required files")
   }
-
 }
 
 pub fn list_default_applications() {
@@ -116,29 +113,27 @@ pub fn check_application_files() {
       { "Incomplete" }
     else { "Missing" };
 
-  // println!("status: {:?}", install_status);
-
   //Executable, Icon, .desktop
   println!("System configuration [{}]:", install_status_system);
-  print_status(config::PATH_EXECUTABLE, "browsewith", "Executable\t");
-  print_status(config::PATH_DESKTOP, "browsewith.desktop", ".desktop\t");
-  print_status(config::PATH_ICON, "browsewith.ico", "Icon\t\t");
+  print_status(config::get_executable_path(true), config::BW_EXECUTABLE, "Executable\t");
+  print_status(config::get_dotdesktop_path(true), config::BW_DOTDESKTOP, ".desktop\t");
+  print_status(config::get_icon_path(true), config::BW_ICON_APPLICATION, "Icon\t\t");
 
   if !is_privileged_user() {
     println!("User configuration [{}]:", install_status_user);
-    #[cfg(target_os = "linux")] print_status(config::get_home_dir().to_str().unwrap(), ".local/bin/browsewith", "Executable\t");
-    #[cfg(target_os = "freebsd")] print_status(config::get_home_dir().to_str().unwrap(), "bin/browsewith", "Executable\t");
-    print_status(config::get_home_dir().to_str().unwrap(), ".local/share/applications/browsewith.desktop", ".desktop\t");
-    print_status(config::get_config_dir().to_str().unwrap(), "browsewith.ico", "Icon\t\t");
-    print_status(config::get_config_dir().to_str().unwrap(), "config.json", "Configuration\t");
+    print_status(config::get_executable_path(false), config::BW_EXECUTABLE, "Executable\t");
+    print_status(config::get_dotdesktop_path(false), config::BW_DOTDESKTOP, ".desktop\t");
+    print_status(config::get_icon_path(false), config::BW_ICON_APPLICATION, "Icon\t\t");
+
+    print_status(config::get_configuration_path(), config::BW_CONFIG, "Configuration\t");
   }
 }
 
-fn print_status(path:&str, filename:&str, text:&str) {
+fn print_status(path:PathBuf, filename:&str, text:&str) {
   let mut file:PathBuf;
   let mut status:&str;
 
-  file = PathBuf::from(path);
+  file = PathBuf::from(path.to_str().unwrap());
   file.push(filename);
   status = "NOT_FOUND";
 
@@ -155,8 +150,7 @@ pub fn is_privileged_user() -> bool {
 }
 
 pub fn load_icon() {
-  let mut home_dir_buf:PathBuf;
-  let icon_file_path:&Path;
+  let icon_file_path:PathBuf;
   let icon_file:Pixbuf;
   let icon_raw:&[u8];
   let icon_bytes:Bytes;
@@ -166,11 +160,9 @@ pub fn load_icon() {
   icon_bytes = Bytes::from(&icon_raw[..]);
 
   // Create the icon file in the configuration directory, if it doesn't exist
-  home_dir_buf = config::get_config_dir();
-  home_dir_buf.push(config::ICON_FILE);
-  icon_file_path = home_dir_buf.as_path();
+  icon_file_path = config::get_icon_file(false);
   if !icon_file_path.is_file() {
-    match write(icon_file_path, icon_bytes) {
+    match write(&icon_file_path, icon_bytes) {
       Ok(..) => {},
       Err(..) => println!("Failed to create icon file")
     }
@@ -220,13 +212,13 @@ fn change_default_app(application_type: DefaultApplicationType) {
 
   match application_type {
     DefaultApplicationType::Web => {
-      args = vec!["set", "default-web-browser", config::DESKTOP_FILE];
+      args = vec!["set", "default-web-browser", config::BW_DOTDESKTOP];
     },
     DefaultApplicationType::Http => {
-      args = vec!["set", "default-url-scheme-handler", "http", config::DESKTOP_FILE];
+      args = vec!["set", "default-url-scheme-handler", "http", config::BW_DOTDESKTOP];
     },
     DefaultApplicationType::Https => {
-      args = vec!["set", "default-url-scheme-handler", "https", config::DESKTOP_FILE];
+      args = vec!["set", "default-url-scheme-handler", "https", config::BW_DOTDESKTOP];
     }
   }
 
@@ -239,7 +231,6 @@ fn change_default_app(application_type: DefaultApplicationType) {
       // println!("Err->change_default_app: ");
     }
   }
-
 }
 
 fn check_desktop_configuration_tool() -> bool {
@@ -250,46 +241,27 @@ fn check_desktop_configuration_tool() -> bool {
     Ok(..) => { return true; },
     Err(..) => { return false; }
   }
-
 }
 
 fn check_installation() -> InstalledStatus {
-
   let mut status:InstalledStatus = InstalledStatus::empty();
-  let mut system_executable:PathBuf;
-  let mut user_executable:PathBuf;
-  let mut system_dotdesktop:PathBuf;
-  let mut user_dotdesktop:PathBuf;
-  let mut system_icon:PathBuf;
-  let mut user_icon:PathBuf;
-  let mut config_file:PathBuf;
+  let system_executable:PathBuf;
+  let user_executable:PathBuf;
+  let system_dotdesktop:PathBuf;
+  let user_dotdesktop:PathBuf;
+  let system_icon:PathBuf;
+  let user_icon:PathBuf;
+  let config_file:PathBuf;
 
-  system_executable = PathBuf::from(config::PATH_EXECUTABLE);
-  system_icon = PathBuf::from(config::PATH_ICON);
-  system_dotdesktop = PathBuf::from(config::PATH_DESKTOP);
+  system_executable = config::get_executable_file(true);
+  system_dotdesktop = config::get_dotdesktop_file(true);
+  system_icon = config::get_icon_file(true);
 
-  user_executable = PathBuf::from(config::get_home_dir());
-  user_icon = config::get_config_dir();
-  user_dotdesktop = PathBuf::from(config::get_home_dir());
+  user_executable = config::get_executable_file(false);
+  user_dotdesktop = config::get_dotdesktop_file(false);
+  user_icon = config::get_icon_file(false);
 
-  config_file = config::get_config_dir();
-
-  // If browsewith is in the system or local user path
-  system_executable.push("browsewith");
-  #[cfg(target_os = "linux")] user_executable.push(".local/bin/browsewith");
-  #[cfg(target_os = "freebsd")] user_executable.push("bin/browsewith");
-
-  // Dot desktop file
-  system_dotdesktop.push(config::DESKTOP_FILE);
-  user_dotdesktop.push(".local/share/applications");
-  user_dotdesktop.push(config::DESKTOP_FILE);
-
-  // Icon file
-  system_icon.push(config::ICON_FILE);
-  user_icon.push(config::ICON_FILE);
-
-  // Configuration file
-  config_file.push(config::CONFIG_FILE);
+  config_file = config::get_configuration_file();
 
   // Set the appropriate bitmask.
   if system_executable.is_file() { status = status | InstalledStatus::HAS_SYSTEM_EXECUTABLE; }
@@ -305,20 +277,16 @@ fn check_installation() -> InstalledStatus {
 
 fn save_browsewith() {
   let mut destination:PathBuf;
+  let is_admin:bool;
 
-  if is_privileged_user() {
-    destination = PathBuf::from(config::PATH_EXECUTABLE);
-  } else {
-    destination = config::get_home_dir();
-    #[cfg(target_os = "linux")] destination.push(".local/bin");
-    #[cfg(target_os = "freebsd")] destination.push("bin");
-  }
+  is_admin = is_privileged_user();
+  destination = config::get_executable_path(is_admin);
 
   if !destination.is_dir() {
     std::fs::create_dir_all(&destination).unwrap();
   }
 
-  destination.push("browsewith");
+  destination = config::get_executable_file(is_admin);
   if !destination.exists() {
     std::fs::copy(std::env::current_exe().unwrap(), destination).unwrap();
   }
@@ -326,23 +294,21 @@ fn save_browsewith() {
 
 fn save_icon() {
   let mut icon_file:PathBuf;
+  let is_admin:bool;
   let icon_raw:&[u8];
   let icon_bytes:Bytes;
 
   icon_raw = include_bytes!("../../resources/browsewith.ico");
   icon_bytes = Bytes::from(&icon_raw[..]);
 
-  if is_privileged_user() {
-    icon_file = PathBuf::from(config::PATH_ICON);
-  } else {
-    icon_file = config::get_config_dir();
-  }
+  is_admin = is_privileged_user();
+  icon_file = config::get_icon_path(is_admin);
 
   if !icon_file.is_dir() {
     std::fs::create_dir_all(&icon_file).unwrap();
   }
 
-  icon_file.push(config::ICON_FILE);
+  icon_file = config::get_icon_file(is_admin);
   if !icon_file.is_file() {
     match write(&icon_file, icon_bytes) {
       Ok(..) => {},
@@ -352,35 +318,29 @@ fn save_icon() {
 }
 
 fn save_dotdesktop() {
-  let mut dotdesktop_file:PathBuf;
+  let dotdesktop_file:PathBuf;
   let mut mimeapps_file:PathBuf;
   let dotdesktop_raw:&[u8];
   let mut dotdesktop_data:String;
   let system_path:String;
-  let config_path:String;
+  let icon_file_path:String;
 
   dotdesktop_raw = include_bytes!("../../resources/browsewith.desktop");
 
-  if is_privileged_user() {
-    dotdesktop_file = PathBuf::from(config::PATH_DESKTOP);
-    mimeapps_file = PathBuf::from(config::PATH_DESKTOP);
-    system_path = config::PATH_EXECUTABLE.to_string();
-    config_path = config::PATH_ICON.to_string();
-  } else {
-    dotdesktop_file = config::get_home_dir();
-    dotdesktop_file.push(".local/share/applications");
-    mimeapps_file = config::get_home_dir();
-    mimeapps_file.push(".config");
-    system_path = (format!("{}/{}", config::get_home_dir().to_str().unwrap(), ".local/bin")).to_string();
-    config_path = config::get_config_dir().to_str().unwrap().to_string();
-  }
-  dotdesktop_file.push(config::DESKTOP_FILE);
+  let is_admin:bool;
+  is_admin = is_privileged_user();
+  dotdesktop_file = config::get_dotdesktop_file(is_admin);
+  // The mimeapps.list is user ~.config/ not in the BrowseWith configuration directory
+  mimeapps_file = config::get_home_dir();
+  mimeapps_file.push(".config");
   mimeapps_file.push("mimeapps.list");
-
+  system_path = config::get_executable_path(is_admin).to_str().unwrap().to_string();
+  icon_file_path = config::get_icon_file(is_admin).to_str().unwrap().to_string();
+  
   if !dotdesktop_file.is_file() {
     dotdesktop_data = String::from_utf8_lossy(dotdesktop_raw).to_string();
     dotdesktop_data = dotdesktop_data.replace("_SYSTEM_PATH_", &system_path);
-    dotdesktop_data = dotdesktop_data.replace("_CONFIG_PATH_", &config_path);
+    dotdesktop_data = dotdesktop_data.replace("_ICON_FILE_", &icon_file_path);
 
     match write(&dotdesktop_file, dotdesktop_data) {
       Ok(..) => {
@@ -419,13 +379,13 @@ pub fn modify_default_list(file_path:&Path, install:bool) {
         if section.contains_key(key) { 
           match section.get(key) {
             Some(val) => {
-              if !val.contains(config::DESKTOP_FILE) && install {
+              if !val.contains(config::BW_DOTDESKTOP) && install {
                 new_value = String::from(val);
-                section.insert(key.to_string(), format!("{}{};", new_value, config::DESKTOP_FILE) );
+                section.insert(key.to_string(), format!("{}{};", new_value, config::BW_DOTDESKTOP) );
                 ini_changed = true;
-              } else if val.contains(config::DESKTOP_FILE) && !install {
+              } else if val.contains(config::BW_DOTDESKTOP) && !install {
                 new_value = String::from(val);
-                new_value = remove_from_string(new_value, format!("{};", config::DESKTOP_FILE));
+                new_value = remove_from_string(new_value, format!("{};", config::BW_DOTDESKTOP));
                 section.insert(key.to_string(), new_value);
                 ini_changed = true;
               }
@@ -447,19 +407,13 @@ pub fn modify_default_list(file_path:&Path, install:bool) {
 }
 
 fn remove_browsewith() {
-  let mut destination:PathBuf;
+  let executable_file:PathBuf;
+  let is_admin:bool;
 
-  if is_privileged_user() {
-    destination = PathBuf::from(config::PATH_EXECUTABLE);
-  } else {
-    destination = config::get_home_dir();
-    #[cfg(target_os = "linux")] destination.push(".local/bin");
-    #[cfg(target_os = "freebsd")] destination.push("bin");
-  }
-
-  destination.push("browsewith");
-  if destination.is_file() {
-    std::fs::remove_file(destination).unwrap();
+  is_admin = is_privileged_user();
+  executable_file = config::get_executable_file(is_admin);
+  if executable_file.is_file() {
+    std::fs::remove_file(executable_file).unwrap();
   }
 }
 
@@ -469,22 +423,18 @@ fn unregister_browsewith() {
   let mut mimeapps_file:PathBuf;
 
   if is_privileged_user() {
-    desktop_file = PathBuf::from(config::PATH_DESKTOP);
-    desktop_file.push(config::DESKTOP_FILE);
+    desktop_file = config::get_dotdesktop_file(true);
     if desktop_file.is_file() { std::fs::remove_file(desktop_file).unwrap(); }
-    Command::new("update-desktop-database").output().expect("Failed to execute process");
-
+      Command::new("update-desktop-database").output().expect("Failed to execute process");
     remove_icon();
   }
 
   // ~/.loca/share/applications/browsewith.desktop
-  desktop_file = config::get_home_dir();
-  desktop_file.push(".local/share/applications");
-  desktop_file.push(config::DESKTOP_FILE);
+  desktop_file = config::get_dotdesktop_file(false);
   if desktop_file.is_file() { std::fs::remove_file(desktop_file).unwrap(); }
 
   // ~/.config/browsewith
-  config_dir = config::get_config_dir();
+  config_dir = config::get_configuration_path();
   if config_dir.is_dir() { std::fs::remove_dir_all(config_dir).unwrap(); }
 
   // ~/.config/mimeapps.list
@@ -495,9 +445,12 @@ fn unregister_browsewith() {
 }
 
 fn remove_icon() {
-  let mut icon_file:PathBuf;
-  icon_file = PathBuf::from(config::PATH_ICON);
-  icon_file.push(config::ICON_FILE);
+  let icon_file:PathBuf;
+  let is_admin:bool;
+
+  is_admin = is_privileged_user();
+  icon_file = config::get_icon_file(is_admin);
+
   if icon_file.is_file() {
     std::fs::remove_file(icon_file).unwrap();
   }
