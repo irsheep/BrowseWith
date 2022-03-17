@@ -18,13 +18,14 @@ pub fn get_browser_list() -> Vec<BrowserSettings> {
     BrowserSettings { title: "_Brave".to_string(), executable: "BraveSoftware\\Brave-Browser\\Application\\brave.exe,0".to_string(), arguments: "".to_string(), icon: "".to_string() },
     BrowserSettings { title: "Brave Incog_nito".to_string(), executable: "BraveSoftware\\Brave-Browser\\Application\\brave.exe,0".to_string(), arguments: "--incognito".to_string(), icon: "".to_string() },
     BrowserSettings { title: "Brave _TOR".to_string(), executable: "BraveSoftware\\Brave-Browser\\Application\\brave.exe,0".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
-    BrowserSettings { title: "_Edge".to_string(), executable: "Microsoft\\Edge\\Application\\msedge.exe,0".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
-    BrowserSettings { title: "Edge In_Private".to_string(), executable: "Microsoft\\Edge\\Application\\msedge.exe,0".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
+    BrowserSettings { title: "_Edge".to_string(), executable: "Microsoft\\Edge\\Application\\msedge.exe,0".to_string(), arguments: "".to_string(), icon: "".to_string() },
+    BrowserSettings { title: "Edge In_Private".to_string(), executable: "Microsoft\\Edge\\Application\\msedge.exe,0".to_string(), arguments: "-inprivate".to_string(), icon: "".to_string() },
     BrowserSettings { title: "_Firefox".to_string(), executable: "Mozilla Firefox\\firefox.exe,0".to_string(), arguments: "-new-tab".to_string(), icon: "".to_string() },
     BrowserSettings { title: "Firefox Pri_vate".to_string(), executable: "Mozilla Firefox\\firefox.exe,4".to_string(), arguments: "-private-window".to_string(), icon: "".to_string() },
     BrowserSettings { title: "_Google".to_string(), executable: "Google\\Chrome\\Application\\chrome.exe,0".to_string(), arguments: "".to_string(), icon: "".to_string() },
     BrowserSettings { title: "Google _Incognito".to_string(), executable: "Google\\Chrome\\Application\\chrome.exe,7".to_string(), arguments: "--incognito".to_string(), icon: "".to_string() },
-    // { title: "".to_string(), executable: "".to_string(), arguments: "--tor".to_string(), icon: "".to_string() },
+    BrowserSettings { title: "Internet E_xplorer".to_string(), executable: "Internet Explorer\\iexplore.exe,0".to_string(), arguments: "".to_string(), icon: "".to_string() },
+    BrowserSettings { title: "Internet Explorer InPrivate".to_string(), executable: "Internet Explorer\\iexplore.exe,0".to_string(), arguments: "-private".to_string(), icon: "".to_string() },
   ].to_vec();
 
   program_files_list = [

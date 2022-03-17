@@ -270,10 +270,17 @@ fn button_with_image(application:&Application, box_object:&Box, button_propertie
 
 fn button_clicked<'a>(application:&Application, browser_settings:&'a config::BrowserSettings ) {
   let mut url:String = String::from("");
+  let mut args:Vec<&str> = Vec::new();
+
   URL.with(|v| {url = v.borrow().to_string();});
+
+  if browser_settings.arguments != "" {
+    args.push(&browser_settings.arguments);
+  }
+  args.push(&url);
+
   Command::new(&browser_settings.executable)
-    .arg(&browser_settings.arguments)
-    .arg(url)
+    .args(args.iter())
     .stderr(Stdio::null())
     .stdout(Stdio::null())
     .spawn()

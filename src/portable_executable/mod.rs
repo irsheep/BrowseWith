@@ -18,10 +18,6 @@ thread_local!{
   static SECTIONS:RefCell<Vec<OptionalHeaderSection>> = RefCell::new(Vec::new());
 }
 
-// fn main() {
-//   save_icon("/opt/app/bin/firefox.exe", 0, "/opt/app/bin/firefox.ico");
-// }
-
 pub fn get_icon(file_path:&str, icon_index:usize, size:Option<i32>) -> Vec<u8> {
 
   let mut buf_reader = BufReader::new(File::open(file_path).unwrap());
