@@ -1,4 +1,4 @@
-# BrowseWith
+# Introduction
 
 BrowseWith is an application which allows the user to select a web browser before opening a URL from an application, such as clicking on a URL in an email client. Alternatively it can be also placed on the taskbar so the user can choose which browser to use.
 
@@ -6,9 +6,30 @@ BrowseWith is an application which allows the user to select a web browser befor
 
 ![BrowseWith Windows](/images/browsewith_windows.png)
 
-## Runtime Arguments
+## Table of contents
 
-You can run BrowseWith with some arguments to setup BrowseWith on the system.
+* [Requirements](#requirements)
+* [Usage](#usage)
+* [Configuration](#configuration)
+* [Roadmap](#roadmap)
+
+## Requirements
+
+BrowseWith is written in Rust and cross-compiled to run on different operative systems. Check below for your, operative system requirements.
+
+### Linux/BSD
+- GTK v3
+- [xdg-utils](https://www.freedesktop.org/wiki/Software/xdg-utils/)
+
+### Windows
+
+*All required DLLS are provided with the ZIP file*
+
+## Usage
+
+BrowseWith supports the arguments below. If executed without any arguments it will display the main window with the detected browsers.
+
+**URL**: The URL to open after selecting a browser.
 
 **--install**: Installs BrowseWith by copying the files to the appropriate locations and register itself as a handler for the HTTP and HTTPS protocols. If *--install* is executed with elevated privileges then it is installed for all users.
 
@@ -20,7 +41,7 @@ You can run BrowseWith with some arguments to setup BrowseWith on the system.
 
 **--status**: Displays the current default web browser and where the application files are/will be installed and the location of the configuration file.
 
-# Configuration
+## Configuration
 
 BrowseWith will create the configuration file when it runs, if the configuration file doesn't exist at the required location, *~/.config/browsewith/config.json* for Linux/BSD, *%userprofile%\.browsewith\config.json* on Windows.
 
@@ -85,3 +106,12 @@ BrowseWith displays the browsers in the application in the same order they are i
 - **executable**: Full path to the application executable file.
 - **arguments**: One or more arguments to the passed to the application.
 - **icon**: Full path to the location of the icon to associate with the button.
+
+## Roadmap
+
+- [ ] Support for MacOs
+- [ ] Rescan browsers
+- [ ] Add URL history
+- [ ] Allow copy/edit URL
+- [ ] Change URL font
+- [ ] Allow single '\\' in config.json
