@@ -1,7 +1,7 @@
 [package]
 name = "browsewith"
 description = "Select what browser to use when opening links from applications."
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Luis Tavares"]
 edition = "2018"
 license = "MIT"
@@ -10,8 +10,8 @@ build = "build.rs"
 [package.metadata.winres]
 OriginalFilename = "browsewith.exe"
 FileDescription = "BrowseWith select browser to open URLs"
-FileVersion = "0.1.0"
-ProductVersion = "0.1.0"
+FileVersion = "0.1.1"
+ProductVersion = "0.1.1"
 ProductName = "BrowseWith"
 
 [dependencies]
@@ -28,7 +28,7 @@ version = "0.14.3"
 features = ["v3_22_29"]
 
 [target.'cfg(unix)'.dependencies]
-nix = "0.9.0"
+nix = "0.24.1"
 rust-ini = "0.18.0"
 
 [target.'cfg(windows)'.dependencies]
