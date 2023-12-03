@@ -1,7 +1,7 @@
 // use dirs;
 use std::{ include_bytes };
 use std::path::{ Path, PathBuf };
-use std::fs::{ write };
+use std::fs::{ write, create_dir_all, copy };
 use std::process::{ Command, Output };
 use std::io::{ Error };
 use std::slice::Iter;
@@ -45,7 +45,8 @@ enum DefaultApplicationType {
 
 pub fn install() {
   save_browsewith();
-  save_icon();
+  // save_icon();
+  save_icons();
   save_dotdesktop();
 }
 
@@ -61,7 +62,7 @@ pub fn set_default_browser() {
   if check_desktop_configuration_tool() &&
      install_status.intersects(InstalledStatus::EXECUTABLE_OK) &&
      install_status.intersects(InstalledStatus::DOTDESKTOP_OK) &&
-     install_status.intersects(InstalledStatus::ICON_OK) 
+     install_status.intersects(InstalledStatus::ICON_OK)
   {
     // Web and HTTP seem to be linked, but we change both just in case
     if apps.browser != config::BW_DOTDESKTOP { change_default_app(DefaultApplicationType::Web); }
@@ -76,7 +77,7 @@ pub fn set_default_browser() {
 
 pub fn list_default_applications() {
   let apps:DefaultApplications = get_default_applications();
-  
+
   println!("Defaults:\n Web Browser: {}\n Protocol handlers:\n   http: {}\n   https: {}\n",
     apps.browser, apps.http, apps.https
   );
@@ -90,7 +91,7 @@ pub fn check_application_files() {
   let install_status_user:&str;
 
   install_status = check_installation();
-  install_status_system = if 
+  install_status_system = if
       install_status.intersects(InstalledStatus::HAS_SYSTEM_EXECUTABLE) &&
       install_status.intersects(InstalledStatus::HAS_SYSTEM_DOTDESKTOP) &&
       install_status.intersects(InstalledStatus::HAS_SYSTEM_ICON)
@@ -101,12 +102,12 @@ pub fn check_application_files() {
       install_status.intersects(InstalledStatus::HAS_SYSTEM_ICON)
       { "Incomplete" }
     else { "Missing" };
-  install_status_user = if 
+  install_status_user = if
       install_status.intersects(InstalledStatus::HAS_USER_EXECUTABLE) &&
       install_status.intersects(InstalledStatus::HAS_USER_DOTDESKTOP) &&
       install_status.intersects(InstalledStatus::HAS_USER_ICON)
       { "Ok" }
-    else if 
+    else if
       install_status.intersects(InstalledStatus::HAS_USER_EXECUTABLE) ||
       install_status.intersects(InstalledStatus::HAS_USER_DOTDESKTOP) ||
       install_status.intersects(InstalledStatus::HAS_USER_ICON)
@@ -150,6 +151,7 @@ pub fn is_privileged_user() -> bool {
 }
 
 pub fn load_icon() {
+  let icon_path:PathBuf;
   let icon_file_path:PathBuf;
   let icon_file:Pixbuf;
   let icon_raw:&[u8];
@@ -159,12 +161,18 @@ pub fn load_icon() {
   icon_raw = include_bytes!("../../resources/browsewith.ico");
   icon_bytes = Bytes::from(&icon_raw[..]);
 
+  // Create directory for icons if it doesn't exist
+  icon_path = config::get_icon_path(false);
+  if !icon_path.exists() {
+    create_dir_all(icon_path).unwrap();
+  }
+
   // Create the icon file in the configuration directory, if it doesn't exist
   icon_file_path = config::get_icon_file(false);
   if !icon_file_path.is_file() {
     match write(&icon_file_path, icon_bytes) {
       Ok(..) => {},
-      Err(..) => println!("Failed to create icon file")
+      Err(..) => println!("Failed to create icon file {}", &icon_file_path.display())
     }
   }
 
@@ -292,6 +300,7 @@ fn save_browsewith() {
   }
 }
 
+#[allow(dead_code)]
 fn save_icon() {
   let mut icon_file:PathBuf;
   let is_admin:bool;
@@ -317,6 +326,43 @@ fn save_icon() {
   }
 }
 
+fn save_icons() {
+  let is_admin:bool;
+  let icon_raw:&[u8];
+  let dlls_file:String;
+  let mut lines:std::str::Lines<>;
+  let icons_path:PathBuf;
+  let mut src_file:PathBuf;
+  let mut dst_file:PathBuf;
+
+  icon_raw = include_bytes!("../../resources/icons.txt");
+  dlls_file = String::from_utf8_lossy(icon_raw).to_string();
+  lines = dlls_file.lines();
+
+  is_admin = is_privileged_user();
+  icons_path = config::get_icon_path(is_admin);
+
+  if !icons_path.exists() {
+    create_dir_all(icons_path.clone()).unwrap();
+  }
+
+  loop {
+    match lines.next() {
+      Some(line) => {
+        src_file = PathBuf::from("../icons");
+        src_file.push(line);
+        dst_file = icons_path.clone();
+        dst_file.push(line);
+        // println!("src:{} dst:{}", src_file.display(), dst_file.display());
+        copy(src_file.as_path(), dst_file.as_path()).unwrap();
+      },
+      None => {
+        break;
+      }
+    }
+  }
+}
+
 fn save_dotdesktop() {
   let dotdesktop_file:PathBuf;
   let mut mimeapps_file:PathBuf;
@@ -336,7 +382,7 @@ fn save_dotdesktop() {
   mimeapps_file.push("mimeapps.list");
   system_path = config::get_executable_path(is_admin).to_str().unwrap().to_string();
   icon_file_path = config::get_icon_file(is_admin).to_str().unwrap().to_string();
-  
+
   if !dotdesktop_file.is_file() {
     dotdesktop_data = String::from_utf8_lossy(dotdesktop_raw).to_string();
     dotdesktop_data = dotdesktop_data.replace("_SYSTEM_PATH_", &system_path);
@@ -376,7 +422,7 @@ pub fn modify_default_list(file_path:&Path, install:bool) {
   loop {
     match iter.next() {
       Some(key) => {
-        if section.contains_key(key) { 
+        if section.contains_key(key) {
           match section.get(key) {
             Some(val) => {
               if !val.contains(config::BW_DOTDESKTOP) && install {

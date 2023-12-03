@@ -1,5 +1,5 @@
 [build]
-target-dir="/tmp/browsewith/target/"
+target-dir="./target/"
 
 [profile.release]
 debug = false

@@ -2,8 +2,6 @@
 
 BrowseWith is an application which allows the user to select a web browser before opening a URL from an application, such as clicking on a URL in an email client. Alternatively it can be also placed on the taskbar so the user can choose which browser to use.
 
-> **ATTENTION** BrowseWith is currently in **alpha**, it is fully functional and working, but it does not handle errors, such as files missing, invalid configuration, etc.
-
 ![BrowseWith Windows](/images/browsewith_windows.png)
 
 ## Table of contents
@@ -63,7 +61,12 @@ Default configuration
       "window": {
           "always_ontop": true,
           "position": "center"
-      }
+      },
+    "charset_policy": {
+      "utf8": "Allow",
+      "utf16": "Warn",
+      "utf32": "Warn"
+    }
   },
   "browsers_list": []
 }
@@ -86,10 +89,19 @@ Default configuration
 - **always_ontop**: [true, false] Make BrowseWith to be always visible on top of other windows.
 - **position**: [none, center, mouse] Initial placement of the window, *none* decided by the OS, *center* centre of the screen, *mouse* cantered on the mouse pointer.
 
-### Browsers
-BrowseWith will try and detect the browsers installed on the system; this is only done if the configuration file isn't present. So if another browser is installed then it needs to be manually added to the **browser_list** section in the configuration file. 
+### Charset Policy
+The Charset Policy determines how BrowseWith will handle urls that contain from different character sets.
+By default BrowseWith will display a warning if an url has UTF16 or UTF32 characters.
 
-BrowseWith displays the browsers in the application in the same order they are in the **browser_list**. 
+Supported actions per character set:
+- **Allow**: No action taken.
+- **Warn**: Displays a warning message prompting before continuing.
+- **Block**: Displays an error message and terminates the program.
+
+### Browsers
+BrowseWith will try and detect the browsers installed on the system; this is only done if the configuration file isn't present. So if another browser is installed then it needs to be manually added to the **browser_list** section in the configuration file.
+
+BrowseWith displays the browsers in the application in the same order they are in the **browser_list**.
 
 ```json
 "browser_list": [
@@ -97,7 +109,10 @@ BrowseWith displays the browsers in the application in the same order they are i
     "title": "_Brave",
     "executable": "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
     "arguments": "",
-    "icon": "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe,0"
+    "icon": "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe,0",
+    "auto_launch": [
+      "https://duckduckgo.com/"
+    ]
   }
 ]
 ```
@@ -106,6 +121,7 @@ BrowseWith displays the browsers in the application in the same order they are i
 - **executable**: Full path to the application executable file.
 - **arguments**: One or more arguments to the passed to the application.
 - **icon**: Full path to the location of the icon to associate with the button.
+- **auto_launch**: A list of URLs, regular expressions allowed, that BrowseWith will open automatically with the browser.
 
 ## Roadmap
 

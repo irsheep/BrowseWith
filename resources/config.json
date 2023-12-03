@@ -14,6 +14,11 @@
         "window": {
             "always_ontop": true,
             "position": "center"
+        },
+        "charset_policy": {
+          "utf8": "Allow",
+          "utf16": "Warn",
+          "utf32": "Warn"
         }
     },
     "browsers_list": []

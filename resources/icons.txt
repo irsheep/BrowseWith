@@ -1,0 +1,3 @@
+browsewith.ico
+download.png
+close.png

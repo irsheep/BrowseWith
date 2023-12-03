@@ -1,6 +1,6 @@
-use std::{ include_bytes, thread, time };
+use std::{ include_bytes, ptr };
 use std::path::{ PathBuf };
-use std::fs::{ write };
+use std::fs::{ write, create_dir_all, copy };
 use std::process::{ exit };
 use std::io::{ Error as IoError };
 use std::ffi::CString;
@@ -11,22 +11,23 @@ use core::slice::Iter;
 use gtk::glib::{ Bytes };
 use gtk::gdk_pixbuf::{ Pixbuf };
 
-use windows::core::{ Error, HSTRING };
+use windows::core::{ Error };
 use windows::Win32::Foundation::{ PWSTR, PSTR };
 use windows::Win32::UI::Shell::{ AT_URLPROTOCOL, AL_MACHINE, AL_EFFECTIVE, SHCNE_ASSOCCHANGED, SHCNF_DWORD, SHCNF_FLUSH };
 use windows::Win32::UI::Shell::{ IApplicationAssociationRegistration, ApplicationAssociationRegistration, ASSOCIATIONLEVEL, SHChangeNotify };
 use windows::Win32::System::Com::{ CLSCTX_ALL };
 use windows::Win32::System::Com::{ CoCreateInstance, CoInitialize };
-use windows::System::{ RemoteLauncher, RemoteLaunchUriStatus };
-use windows::System::RemoteSystems::{ RemoteSystemConnectionRequest, RemoteSystem };
-use windows::Foundation::{ IAsyncOperation, AsyncStatus, Uri };
-use windows::Networking::{ HostName };
+
 use winreg::enums::{ HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_ALL_ACCESS, REG_EXPAND_SZ };
 use winreg::enums::{ RegType, RegDisposition };
 use winreg::{ HKEY, RegKey, RegValue };
+
+use winapi;
+use winapi::ctypes::c_int;
 use winapi::um::winreg as winreg_api;
 use winapi::um::winuser::SendMessageTimeoutW;
 use winapi::um::winuser::{ HWND_BROADCAST, WM_SETTINGCHANGE, SMTO_ABORTIFHUNG };
+use winapi::um::shellapi::ShellExecuteW;
 
 use bitflags::bitflags;
 use is_elevated::is_elevated;
@@ -53,8 +54,9 @@ pub fn install() {
 
   is_admin = is_privileged_user();
   save_browsewith(is_admin);
-  save_icon(is_admin);
-  save_close_icon(is_admin);
+  save_icons();
+  // save_icon(is_admin);
+  // save_close_icon(is_admin);
   set_registry_settings().unwrap();
 }
 
@@ -63,79 +65,20 @@ pub fn uninstall() {
   unregister_browsewith();
 }
 
-// Attempts to configure BrowseWith as the default web browser
 pub fn set_default_browser() {
-  let browsewith_handlers:[String; 2] = [ "BrowseWith.Assoc.1".to_string(), "BrowseWith.Assoc.1".to_string() ];
-  let registered_applications:Result<[String; 2], Error>;
-  let association_level:ASSOCIATIONLEVEL;
+  const SW_SHOW:c_int = 5;
+  let path:Vec<u16> = to_utf16("ms-settings:defaultapps");
+  let operation:Vec<u16> = to_utf16("open");
 
-  let default_applications_url:HSTRING = HSTRING::from("ms-settings:defaultapps");
-  let uri:Uri = Uri::CreateUri(default_applications_url).unwrap();
-  let hostname:HostName;
-  let remote_system_connection_request:RemoteSystemConnectionRequest;
-  let remote_system:RemoteSystem;
-  let async_op:IAsyncOperation<RemoteSystem>;
-  let result:Result<IAsyncOperation<RemoteLaunchUriStatus>, Error>;
-
-  if is_privileged_user() {
-    association_level = AL_MACHINE;
-  } else {
-    association_level = AL_EFFECTIVE;
-  }
-
-  match set_registry_settings() {
-    Ok(..) => { },
-    Err(..) => {
-      println!("Unable to make changes to the registry");
-      exit(100);
-    }
-  }
-
-  // Check if we are the default browser
-  registered_applications = get_registered_application(association_level);
-  match registered_applications {
-    Ok(..) => { },
-    Err(..) => {
-      println!("Failed to get the default application for HTTP and HTTPs protocols");
-      exit(101);
-    }
-  }
-
-  // Invoke MS Windows default app
-  if registered_applications.unwrap() != browsewith_handlers {
-
-    // Create a 'RemoteSystemConnectionRequest' to use with 'RemoteLauncher'
-    hostname = HostName::CreateHostName(HSTRING::from("localhost")).unwrap();
-    async_op = RemoteSystem::FindByHostNameAsync(hostname).unwrap();
-    while async_op.Status().unwrap() != AsyncStatus::Completed {
-      thread::sleep(time::Duration::from_millis(50));
-    }
-    remote_system = async_op.GetResults().unwrap();
-    remote_system_connection_request = RemoteSystemConnectionRequest::Create(remote_system).unwrap();
-
-    // Run Microsoft 'Default apps'
-    result = RemoteLauncher::LaunchUriAsync(remote_system_connection_request, uri);
-    match result {
-      Ok(launch_status) => {
-        while launch_status.Status().unwrap() != AsyncStatus::Completed {
-          thread::sleep(time::Duration::from_millis(50));
-        }
-        if launch_status.GetResults().unwrap() == RemoteLaunchUriStatus::Success {
-          println!("Use the Microsoft 'Default apps' application to set 'BrowseWith' as your default 'Web Browser'");
-          println!("Alternatively if you want 'BrowseWith' to be associated with 'http' and 'https' links,  ");
-          println!("click on 'Choose defaults apps by protocol', scroll down until you see 'HTTP' and 'HTTPS' and set 'BrowseWith' as the default application.");
-        } else {
-          println!("Error running 'Default apps'.");
-        }
-      },
-      Err(..) => {
-        println!("Failed to open 'Default apps'.");
-      }
-    }
-
-  } else {
-    println!("BrowseWith is already configured as the default browser.");
-  }
+  unsafe {
+    ShellExecuteW(ptr::null_mut(),
+      operation.as_ptr(),
+      path.as_ptr(),
+      ptr::null(),
+      ptr::null(),
+      SW_SHOW
+    );
+  };
 }
 
 pub fn list_default_applications() {
@@ -166,7 +109,7 @@ pub fn check_application_files() {
   let install_status_user:&str;
 
   install_status = check_installation();
-  install_status_system = if 
+  install_status_system = if
       install_status.intersects(InstalledStatus::HAS_SYSTEM_EXECUTABLE) &&
       install_status.intersects(InstalledStatus::HAS_SYSTEM_DLLS) &&
       install_status.intersects(InstalledStatus::HAS_SYSTEM_ICON)
@@ -177,7 +120,7 @@ pub fn check_application_files() {
       install_status.intersects(InstalledStatus::HAS_SYSTEM_ICON)
       { "Incomplete" }
     else { "Missing" };
-  install_status_user = if 
+  install_status_user = if
       install_status.intersects(InstalledStatus::HAS_USER_EXECUTABLE) &&
       install_status.intersects(InstalledStatus::HAS_USER_DLLS) &&
       install_status.intersects(InstalledStatus::HAS_USER_ICON)
@@ -200,7 +143,7 @@ pub fn check_application_files() {
   print_status(config::get_executable_path(false), config::BW_EXECUTABLE, "Executable\t");
   print_status(config::get_icon_path(false), config::BW_ICON_APPLICATION, "Icon\t\t");
   print_dll_status(config::get_executable_path(false), install_status, InstalledStatus::HAS_USER_DLLS);
-  
+
   print_status(config::get_configuration_path(), config::BW_CONFIG, "Configuration\t");
 }
 
@@ -224,7 +167,7 @@ fn print_dll_status(path:PathBuf, install_status:InstalledStatus, status_check:I
   if install_status.intersects(status_check) {
     status = "OK";
   }
-  println!("  {} [{}]\t{}\\bin\\*.dll", "DLLs\t\t", status, path.to_str().unwrap());
+  println!("  {} [{}] {}\\*.dll", "DLLs\t\t", status, path.to_str().unwrap());
 }
 
 pub fn is_privileged_user() -> bool {
@@ -264,8 +207,8 @@ fn check_installation() -> InstalledStatus {
   system_executable = config::get_executable_file(true);
   system_icon = config::get_icon_file(true);
 
-  system_dlls = config::get_executable_path(true);
-  user_dlls =  config::get_executable_path(false);
+  system_dlls = config::get_programfiles_path();
+  user_dlls = config::get_configuration_path();
   system_dll_status = check_dlls(system_dlls);
   user_dll_status = check_dlls(user_dlls);
 
@@ -457,6 +400,18 @@ impl PxStr for str {
 
 fn save_browsewith(is_admin:bool) {
   let mut file_location:PathBuf;
+  let executable_path = config::get_executable_path(is_admin);
+  let lib_path = config::get_lib_path(is_admin);
+
+  // Delete directories and re-create them, for updates
+  if executable_path.exists() {
+    std::fs::remove_dir_all(executable_path.clone()).unwrap();
+    std::fs::create_dir(executable_path.clone()).unwrap();
+  }
+  if lib_path.exists() {
+    std::fs::remove_dir_all(lib_path.clone()).unwrap();
+    std::fs::create_dir(lib_path.clone()).unwrap();
+  }
 
   file_location = config::get_executable_path(is_admin);
   if !file_location.is_dir() {
@@ -473,6 +428,7 @@ fn save_browsewith(is_admin:bool) {
   }
 }
 
+#[allow(dead_code)]
 fn save_icon(is_admin:bool) {
   let mut file_location:PathBuf;
   let icon_raw:&[u8];
@@ -495,12 +451,13 @@ fn save_icon(is_admin:bool) {
   }
 }
 
+#[allow(dead_code)]
 fn save_close_icon(is_admin:bool) {
   let mut file_location:PathBuf;
   let icon_raw:&[u8];
   let icon_bytes:Bytes;
 
-  icon_raw = include_bytes!("../../resources/window-close-symbolic.png");
+  icon_raw = include_bytes!("../../resources/close.png");
   icon_bytes = Bytes::from(&icon_raw[..]);
 
   file_location = config::get_icon_path(is_admin);
@@ -514,6 +471,42 @@ fn save_close_icon(is_admin:bool) {
     match write(&file_location, icon_bytes) {
       Ok(..) => {},
       Err(..) => { println!("Failed to create '{:?}'", file_location.to_str()); }
+    }
+  }
+}
+fn save_icons() {
+  let is_admin:bool;
+  let icon_raw:&[u8];
+  let dlls_file:String;
+  let mut lines:std::str::Lines<>;
+  let icons_path:PathBuf;
+  let mut src_file:PathBuf;
+  let mut dst_file:PathBuf;
+
+  icon_raw = include_bytes!("../../resources/icons.txt");
+  dlls_file = String::from_utf8_lossy(icon_raw).to_string();
+  lines = dlls_file.lines();
+
+  is_admin = is_privileged_user();
+  icons_path = config::get_icon_path(is_admin);
+
+  if !icons_path.exists() {
+    create_dir_all(icons_path.clone()).unwrap();
+  }
+
+  loop {
+    match lines.next() {
+      Some(line) => {
+        src_file = PathBuf::from("../icons");
+        src_file.push(line);
+        dst_file = icons_path.clone();
+        dst_file.push(line);
+        // println!("src:{} dst:{}", src_file.display(), dst_file.display());
+        copy(src_file.as_path(), dst_file.as_path()).unwrap();
+      },
+      None => {
+        break;
+      }
     }
   }
 }
@@ -551,7 +544,7 @@ fn remove_env_path() {
   let mut i:usize;
   let mut iterator:Iter<&str>;
   let mut update_registry:bool;
-  
+
   if is_privileged_user() {
     hkey_root = RegKey::predef(HKEY_LOCAL_MACHINE);
     sub_key = hkey_root.open_subkey_with_flags("SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment", KEY_ALL_ACCESS).unwrap();
@@ -604,11 +597,11 @@ fn notify_env_change() {
   }
 }
 
-struct DllInstallStatus<'a> {
+struct DllInstallStatus {
   pub installed: bool,
-  pub missing_list: Vec<&'a str>
+  pub missing_list: Vec<String>
 }
-impl DllInstallStatus<'_> {
+impl DllInstallStatus {
   pub fn new() -> Self {
     return Self {
       installed: false,
@@ -616,46 +609,26 @@ impl DllInstallStatus<'_> {
     }
   }
 }
-pub fn required_dlls() -> Vec<&'static str> {
-  return [
-    "iconv.dll",
-    "libatk-1.0-0.dll",
-    "libbz2-1.dll",
-    "libcairo-2.dll",
-    "libcairo-gobject-2.dll",
-    "libepoxy-0.dll",
-    "libexpat-1.dll",
-    "libffi-6.dll",
-    "libfontconfig-1.dll",
-    "libfreetype-6.dll",
-    "libfribidi-0.dll",
-    "libgcc_s_seh-1.dll",
-    "libgdk_pixbuf-2.0-0.dll",
-    "libgdk-3-0.dll",
-    "libgio-2.0-0.dll",
-    "libglib-2.0-0.dll",
-    "libgmodule-2.0-0.dll",
-    "libgobject-2.0-0.dll",
-    "libgtk-3-0.dll",
-    "libharfbuzz-0.dll",
-    "libintl-8.dll",
-    "libjpeg-62.dll",
-    "libpango-1.0-0.dll",
-    "libpangocairo-1.0-0.dll",
-    "libpangoft2-1.0-0.dll",
-    "libpangowin32-1.0-0.dll",
-    "libpcre-1.dll",
-    "libpixman-1-0.dll",
-    "libpng16-16.dll",
-    "libssp-0.dll",
-    "libtiff-5.dll",
-    "libwinpthread-1.dll",
-    "zlib1.dll"
-   ].to_vec(); 
+pub fn required_dlls() -> Vec<String> {
+  let icon_raw:&[u8] = include_bytes!("../../resources/dlls.txt");
+  let dlls_file:String = String::from_utf8_lossy(icon_raw).to_string();
+  let mut lines:std::str::Lines<> = dlls_file.lines();
+  let mut dlls_list:Vec<String> = vec![];
+  loop {
+    match lines.next() {
+      Some(line) => {
+        dlls_list.push(line.to_string());
+      },
+      None => {
+        break;
+      }
+    }
+  }
+  return dlls_list.clone();
 }
-fn check_dlls(current_path:PathBuf) -> DllInstallStatus<'static> {
-  let dll_list:Vec<&str>;
-  let mut iter:Iter<&str>;
+fn check_dlls(current_path:PathBuf) -> DllInstallStatus {
+  let dll_list:Vec<String>;
+  let mut iter:Iter<String>;
   let mut check_dll:PathBuf;
   let mut dll_install_status:DllInstallStatus;
 
@@ -671,7 +644,7 @@ fn check_dlls(current_path:PathBuf) -> DllInstallStatus<'static> {
         check_dll.push(dll);
         if !check_dll.is_file() {
           dll_install_status.installed = false;
-          dll_install_status.missing_list.push(dll);
+          dll_install_status.missing_list.push(dll.to_string());
         }
       },
       None => {
@@ -684,9 +657,10 @@ fn check_dlls(current_path:PathBuf) -> DllInstallStatus<'static> {
 }
 fn copy_dlls() {
   let current_path:PathBuf = PathBuf::from(std::env::current_dir().unwrap());
-  let dll_list:Vec<&str>;
-  let mut iter:Iter<&str>;
+  let dll_list:Vec<String>;
+  let mut iter:Iter<String>;
   let mut destination:PathBuf;
+  let mut destination_dir:PathBuf;
   let mut source:PathBuf;
 
   dll_list = required_dlls();
@@ -694,11 +668,20 @@ fn copy_dlls() {
   loop {
     match iter.next() {
       Some(dll) => {
-        destination = config::get_executable_path(is_privileged_user());
+        if is_privileged_user() {
+          destination = config::get_programfiles_path();
+        } else {
+          destination = config::get_configuration_path();
+        }
         destination.push(dll);
 
+        destination_dir = destination.parent().unwrap().to_path_buf();
+        if !destination_dir.is_dir() {
+          std::fs::create_dir_all(&destination_dir).unwrap();
+        }
+
         source = (&current_path).to_path_buf();
-        source.push(dll);
+        source.push(format!("..\\{}", dll));
         if source.is_file() {
           std::fs::copy(source, destination).unwrap();
         }
@@ -714,7 +697,7 @@ fn remove_browsewith() {
   let system_direcotry:PathBuf;
   let user_directory:PathBuf;
 
-  system_direcotry = config::get_executable_path(true);
+  system_direcotry = config::get_programfiles_path();
   user_directory = config::get_configuration_path();
 
   if is_privileged_user() && system_direcotry.is_dir() {
@@ -832,9 +815,9 @@ fn registry_remove_value(hkey:HKEY, path:&str, value:&str) {
 }
 
 /*
-  There seems to be a mismatch with RegValue.bytes, 
-  which is a Vec<u8> but in winreg::RegSetValueExW the 
-  length of lpData (cbData) is expected to be calculated 
+  There seems to be a mismatch with RegValue.bytes,
+  which is a Vec<u8> but in winreg::RegSetValueExW the
+  length of lpData (cbData) is expected to be calculated
   from a double word Vec<u32>
 */
 use winapi::shared::minwindef::{ BYTE, DWORD };

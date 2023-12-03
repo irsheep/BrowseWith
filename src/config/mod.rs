@@ -10,6 +10,8 @@ use gtk::glib::{ Bytes };
 
 use serde::{Deserialize, Serialize};
 
+use regex::Regex;
+
 #[cfg(target_family = "unix")] mod unix;
 #[cfg(target_family = "windows")] mod windows;
 
@@ -30,6 +32,20 @@ pub static BW_ICON_APPLICATION:&str = "browsewith.ico";
 #[cfg(target_os = "freebsd")] pub static PATH_DESKTOP:&str = "/usr/local/share/applications";
 #[cfg(target_os = "freebsd")] pub static PATH_ICON:&str = "/usr/local/share/icons/hicolor/scalable/apps";
 
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+pub enum CharsetPolicyAction {
+  Allow,
+  Warn,
+  Block
+}
+
+#[derive(Debug, PartialEq)]
+pub enum CharsetList {
+  Unknown,
+  Utf16,
+  Utf32
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ButtonProperties {
   pub width: i32,
@@ -47,15 +63,20 @@ pub struct WindowProperties {
   pub position: String,
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub struct CharsetPolicy {
+  pub utf8:CharsetPolicyAction,
+  pub utf16:CharsetPolicyAction,
+  pub utf32:CharsetPolicyAction
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Settings {
-  // pub set_default: i32,
   pub homepage: String,
   pub host_info: bool,
-  // pub icons_per_row: i32,
-  // pub icon_spacing: i32
   pub buttons: ButtonProperties,
-  pub window: WindowProperties
+  pub window: WindowProperties,
+  pub charset_policy: Option<CharsetPolicy>
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -63,7 +84,8 @@ pub struct BrowserSettings {
   pub title: String,
   pub executable: String,
   pub arguments: String,
-  pub icon: String
+  pub icon: String,
+  pub auto_launch: Option<Vec<String>>
 }
 
 #[derive(Serialize, Deserialize)]
@@ -73,7 +95,7 @@ pub struct Configuration {
 }
 
 pub fn get_configuration() -> Configuration {
-  let configuration:Configuration;
+  let mut configuration:Configuration;
   let home_dir_path:Option<PathBuf>;
   let config_directory_buf:PathBuf;
   let config_file_buf:PathBuf;
@@ -99,6 +121,8 @@ pub fn get_configuration() -> Configuration {
   }
 
   configuration = load_configuration(&config_file_buf);
+  configuration = upgrade_configuration(configuration);
+
   return configuration;
 }
 
@@ -133,6 +157,14 @@ pub fn get_config_file() -> PathBuf {
   config_file.push("config.json");
 
   return config_file.to_path_buf();
+}
+
+pub fn get_resource_path(dir:&str, file:&str) -> PathBuf {
+  let mut path:PathBuf;
+  path = get_config_dir().to_path_buf();
+  path.push(dir);
+  path.push(file);
+  return path.to_path_buf();
 }
 
 fn create_configuration_file(config_full_path:&PathBuf) {
@@ -185,6 +217,31 @@ fn save_configuration(file_path:&PathBuf, data:&Configuration) {
   };
 }
 
+pub fn upgrade_configuration(mut data:Configuration) -> Configuration {
+  let config_file_buf:PathBuf = get_config_file();
+  let default_settings:Configuration = get_default_settings();
+  let mut config_upgraded = false;
+
+  match data.settings.charset_policy {
+    Some(_) => { },
+    None => {
+      data.settings.charset_policy = default_settings.settings.charset_policy;
+      config_upgraded = true;
+    }
+  }
+
+  if config_upgraded {
+    save_configuration(&config_file_buf, &data);
+  }
+
+  return data;
+}
+
+#[cfg(target_family = "windows")]
+pub fn get_programfiles_path() -> PathBuf {
+  return windows::get_programfiles_path();
+}
+
 pub fn get_executable_path(is_admin:bool) -> PathBuf {
   #[cfg(target_family = "unix")] return unix::get_executable_path(is_admin);
   #[cfg(target_family = "windows")] return windows::get_executable_path(is_admin);
@@ -219,4 +276,27 @@ pub fn get_configuration_path() -> PathBuf {
 pub fn get_configuration_file() -> PathBuf {
   #[cfg(target_family = "unix")] return unix::get_configuration_file();
   #[cfg(target_family = "windows")] return windows::get_configuration_file();
+}
+
+#[cfg(target_family = "windows")]
+pub fn get_lib_path(is_admin:bool) -> PathBuf {
+  return windows::get_lib_path(is_admin);
+}
+
+pub fn auto_launch_browser(url: String, browser_settings: Vec<BrowserSettings>) -> Option<BrowserSettings> {
+  let mut re;
+  for browser in browser_settings {
+    match browser.auto_launch {
+      Some(ref auto_launch_url) => {
+        for config_url in auto_launch_url {
+          re = Regex::new(config_url).unwrap();
+          if re.is_match(&url) {
+            return Some(browser);
+          }
+        }
+      },
+      None => { }
+    }
+  }
+  return std::option::Option::None;
 }

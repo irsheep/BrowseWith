@@ -14,7 +14,7 @@ Synopsis
    browsewith [URL]
 
 Options
-  --install 
+  --install
           Installs the application. If run as privileged user it will be installed to the system directories or just to the current user otherwise.
   --uninstall
           Remove the application and configuration files.
@@ -22,5 +22,6 @@ Options
           Configures BrowseWith as the default Web browser. On Windows it opens the "Default Apps" settings window.
   --status
           Displays the current default browser and other information about the application.
-   [URL]
-          The URL that will be open on the selected browser.
+   [URL|file]
+          The URL that will be open on the selected browser,
+          or the path to a file

@@ -7,7 +7,7 @@ mod windows;
 pub fn install() {
   #[cfg(target_family = "unix")]
   unix::install();
-  
+
   #[cfg(target_family = "windows")]
   windows::install();
 }

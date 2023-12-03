@@ -23,7 +23,7 @@ pub fn _load_icon() {
   if !icon_file_path.is_file() {
     match write(&icon_file_path, icon_bytes) {
       Ok(..) => {},
-      Err(..) => println!("Failed to create icon file")
+      Err(..) => println!("Failed to create icon file {}", &icon_file_path)
     }
   }
 
