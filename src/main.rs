@@ -544,13 +544,13 @@ fn diplay_host_info(max_width:i32) -> Box {
     updates_check_file.push(constants::UPDATES_CHECK_FILENAME);
     match std::fs::metadata(&updates_check_file) {
       Ok(_) => { },
-      _ => { return glib::Continue(true); }
+      _ => { return glib::ControlFlow::Continue; }
     }
 
     // Compare versions
     let git_release:update::Releases = update::read_check_file(&updates_check_file);
     let mut update_message:String = String::new();
-    let mut glib_continue:bool = true;
+    let mut glib_continue:glib::ControlFlow = glib::ControlFlow::Continue;
     if git_release.version == "" {
       update_message = "Unable to check for updates".to_string();
     } else if !git_release.is_newer {
@@ -564,10 +564,10 @@ fn diplay_host_info(max_width:i32) -> Box {
     // println!("{}:{} update_message: '{}'", file!(), line!(), update_message);
     if update_message != String::new() {
       btn_widget.set_tooltip_text(Some(format!("Version: v{}\n{}", env!("CARGO_PKG_VERSION"), update_message.as_str()).as_str()));
-      glib_continue = false;
+      glib_continue = glib::ControlFlow::Break;
     }
 
-    return glib::Continue(glib_continue);
+    return glib_continue;
   }));
 
   return box_object;
