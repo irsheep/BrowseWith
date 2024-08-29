@@ -20,6 +20,12 @@ use winapi::um::{
   winuser::{ SendInput, INPUT, KEYBDINPUT, INPUT_u, INPUT_KEYBOARD, VK_RETURN }
 };
 
+#[cfg(target_family = "windows")]
+use base64::{
+  Engine as _,
+  engine::{ general_purpose }
+};
+
 #[allow(unused_imports)]
 use std::{ file, line };
 
@@ -539,6 +545,7 @@ fn diplay_host_info(max_width:i32) -> Box {
   });
 
   // Start a thread to check for updates
+  #[allow(deprecated)] // warning: use of deprecated macro `clone`: Using old-style clone! syntax
   glib::source::timeout_add_local(std::time::Duration::new(1, 0), clone!(@strong button as btn_widget => move || {
     let mut updates_check_file = config::get_config_dir();
     updates_check_file.push(constants::UPDATES_CHECK_FILENAME);
@@ -585,11 +592,14 @@ fn get_icon_image(file_path:&String) -> Image {
     let parts:Vec<&str>;
     let source:String;
     let index:usize;
+    
+    let mut b64_file_path = String::new();
+    general_purpose::STANDARD.encode_string(file_path, &mut b64_file_path);
 
     if file_path.contains(".exe") {
       icon_file = PathBuf::from(&config_dir);
       icon_file.push("cache");
-      icon_file.push(base64::encode(file_path));
+      icon_file.push(b64_file_path);
       icon_file.set_extension("ico");
 
       // Get icon index from an .exe file. Default to 0 if not specified

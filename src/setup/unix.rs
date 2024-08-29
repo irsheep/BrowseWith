@@ -25,9 +25,9 @@ bitflags! {
     const HAS_SYSTEM_ICON = 0x10;
     const HAS_USER_ICON = 0x20;
     const HAS_CONFIG = 0x40;
-    const EXECUTABLE_OK = Self::HAS_SYSTEM_EXECUTABLE.bits | Self::HAS_USER_EXECUTABLE.bits;
-    const DOTDESKTOP_OK = Self::HAS_SYSTEM_DOTDESKTOP.bits | Self::HAS_USER_DOTDESKTOP.bits;
-    const ICON_OK = Self::HAS_SYSTEM_ICON.bits | Self::HAS_USER_ICON.bits;
+    const EXECUTABLE_OK = Self::HAS_SYSTEM_EXECUTABLE.bits() | Self::HAS_USER_EXECUTABLE.bits();
+    const DOTDESKTOP_OK = Self::HAS_SYSTEM_DOTDESKTOP.bits() | Self::HAS_USER_DOTDESKTOP.bits();
+    const ICON_OK = Self::HAS_SYSTEM_ICON.bits() | Self::HAS_USER_ICON.bits();
   }
 }
 

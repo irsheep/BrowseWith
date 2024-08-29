@@ -11,8 +11,7 @@ use core::slice::Iter;
 use gtk::glib::{ Bytes };
 use gtk::gdk_pixbuf::{ Pixbuf };
 
-use windows::core::{ Error };
-use windows::Win32::Foundation::{ PWSTR, PSTR };
+use windows::core::{ Error, PWSTR, PSTR };
 use windows::Win32::UI::Shell::{ AT_URLPROTOCOL, AL_MACHINE, AL_EFFECTIVE, SHCNE_ASSOCCHANGED, SHCNF_DWORD, SHCNF_FLUSH };
 use windows::Win32::UI::Shell::{ IApplicationAssociationRegistration, ApplicationAssociationRegistration, ASSOCIATIONLEVEL, SHChangeNotify };
 use windows::Win32::System::Com::{ CLSCTX_ALL };
@@ -34,7 +33,39 @@ use is_elevated::is_elevated;
 
 use crate::config;
 
+//region Convert to 'C' PWSTR and PSTR
+#[allow(dead_code)]
+pub trait PxStr {
+  fn as_pwstr(&self) -> PWSTR;
+  fn as_pstr(&self) -> PSTR;
+}
+
+impl PxStr for str {
+  fn as_pwstr(&self) -> PWSTR {
+    let mut vec:Vec<u16>;
+    vec = self.encode_utf16().collect();
+    return PWSTR(vec.as_mut_ptr());
+  }
+
+  fn as_pstr(&self) -> PSTR {
+    let cstr = CString::new(self);
+    let parameter = cstr.unwrap().into_bytes().into_boxed_slice().as_mut_ptr() as *mut u8;
+    return PSTR(parameter);
+  }
+}
+
+impl PxStr for *mut u16 {
+  fn as_pwstr(&self) -> PWSTR {
+    return PWSTR(self.clone());
+  }
+  fn as_pstr(&self) -> PSTR {
+    return PSTR(core::ptr::null_mut());
+  }
+}
+//endregion
+
 bitflags! {
+  #[derive(Clone)]
   struct InstalledStatus:u8 {
     const HAS_SYSTEM_EXECUTABLE = 0x01;
     const HAS_USER_EXECUTABLE = 0x02;
@@ -43,9 +74,9 @@ bitflags! {
     const HAS_SYSTEM_ICON = 0x10;
     const HAS_USER_ICON = 0x20;
     const HAS_CONFIG = 0x40;
-    const EXECUTABLE_OK = Self::HAS_SYSTEM_EXECUTABLE.bits | Self::HAS_USER_EXECUTABLE.bits;
-    const DOTDESKTOP_OK = Self::HAS_SYSTEM_DLLS.bits | Self::HAS_USER_DLLS.bits;
-    const ICON_OK = Self::HAS_SYSTEM_ICON.bits | Self::HAS_USER_ICON.bits;
+    const EXECUTABLE_OK = Self::HAS_SYSTEM_EXECUTABLE.bits() | Self::HAS_USER_EXECUTABLE.bits();
+    const DOTDESKTOP_OK = Self::HAS_SYSTEM_DLLS.bits() | Self::HAS_USER_DLLS.bits();
+    const ICON_OK = Self::HAS_SYSTEM_ICON.bits() | Self::HAS_USER_ICON.bits();
   }
 }
 
@@ -137,12 +168,12 @@ pub fn check_application_files() {
   println!("System configuration [{}]:", install_status_system);
   print_status(config::get_executable_path(true), config::BW_EXECUTABLE, "Executable\t");
   print_status(config::get_icon_path(true), config::BW_ICON_APPLICATION, "Icon\t\t");
-  print_dll_status(config::get_executable_path(true), install_status, InstalledStatus::HAS_SYSTEM_DLLS);
+  print_dll_status(config::get_executable_path(true), install_status.clone(), InstalledStatus::HAS_SYSTEM_DLLS);
 
   println!("User configuration [{}]:", install_status_user);
   print_status(config::get_executable_path(false), config::BW_EXECUTABLE, "Executable\t");
   print_status(config::get_icon_path(false), config::BW_ICON_APPLICATION, "Icon\t\t");
-  print_dll_status(config::get_executable_path(false), install_status, InstalledStatus::HAS_USER_DLLS);
+  print_dll_status(config::get_executable_path(false), install_status.clone(), InstalledStatus::HAS_USER_DLLS);
 
   print_status(config::get_configuration_path(), config::BW_CONFIG, "Configuration\t");
 }
@@ -298,8 +329,8 @@ fn set_registry_settings() -> std::io::Result<()> {
 }
 
 fn get_registered_application(association_level:ASSOCIATIONLEVEL) -> Result<[String; 2], Error> {
-  let mut http:[u16; 5] = [ 0x68, 0x74, 0x74, 0x70, 0x00 ];
-  let mut https:[u16; 6] = [ 0x68, 0x74, 0x74, 0x70, 0x73, 0x00 ];
+  let http:&str = "http";
+  let https:&str = "https";
   let http_handler_name:String;
   let https_handler_name:String;
 
@@ -308,7 +339,7 @@ fn get_registered_application(association_level:ASSOCIATIONLEVEL) -> Result<[Str
     let application_association:IApplicationAssociationRegistration;
     let mut browser_association:Result<PWSTR, _>;
 
-    CoInitialize(std::ptr::null_mut())?;
+    let _ = CoInitialize(Some(std::ptr::null_mut()));
 
     // Create an instance of ApplicationAssociationRegistration COM component
     com_instance = CoCreateInstance(
@@ -327,11 +358,12 @@ fn get_registered_application(association_level:ASSOCIATIONLEVEL) -> Result<[Str
     application_association=com_instance.unwrap();
 
     // Get associated application for HTTP protocol
-    browser_association = application_association.QueryCurrentDefault(
-      PWSTR(http.as_mut_ptr()),
+    browser_association = Err(application_association.QueryCurrentDefault(
+      // PWSTR(http.as_mut_ptr()),
+      http.as_pwstr(),
       AT_URLPROTOCOL,
       association_level,
-    );
+    ));
     match browser_association {
       Ok(assoc) => {
         http_handler_name = read_to_string(assoc);
@@ -342,11 +374,11 @@ fn get_registered_application(association_level:ASSOCIATIONLEVEL) -> Result<[Str
     }
 
     // Get associated application for HTTPs protocol
-    browser_association = application_association.QueryCurrentDefault(
-      PWSTR(https.as_mut_ptr()),
+    browser_association = Err(application_association.QueryCurrentDefault(
+      https.as_pwstr(),
       AT_URLPROTOCOL,
       association_level,
-    );
+    ));
     match browser_association {
       Ok(assoc) => {
         https_handler_name = read_to_string(assoc);
@@ -356,7 +388,7 @@ fn get_registered_application(association_level:ASSOCIATIONLEVEL) -> Result<[Str
       }
     }
 
-    SHChangeNotify( SHCNE_ASSOCCHANGED, SHCNF_DWORD | SHCNF_FLUSH, std::ptr::null_mut(), std::ptr::null_mut() );
+    SHChangeNotify( SHCNE_ASSOCCHANGED, SHCNF_DWORD | SHCNF_FLUSH, Some(std::ptr::null_mut()), Some(std::ptr::null_mut()) );
 
   }
 
@@ -372,30 +404,11 @@ unsafe fn read_to_string(ptr: PWSTR) -> String {
       break;
     }
     len += 1;
-    cursor = PWSTR(cursor.0.add(1));
+    cursor = cursor.0.add(1).as_pwstr();
   }
 
   let slice = std::slice::from_raw_parts(ptr.0, len);
   String::from_utf16(slice).unwrap()
-}
-
-pub trait PxStr {
-  fn to_pwstr(&self) -> PWSTR;
-  fn to_pstr(&self) -> PSTR;
-}
-impl PxStr for str {
-  fn to_pwstr(&self) -> PWSTR {
-    let mut vec:Vec<u16>;
-    vec = self.encode_utf16().collect();
-    // vec.push(0);
-    return PWSTR(vec.as_mut_ptr());
-  }
-
-  fn to_pstr(&self) -> PSTR {
-    let cstr = CString::new(self);
-    let parameter = cstr.unwrap().into_bytes().into_boxed_slice().as_mut_ptr() as *mut u8;
-    return PSTR(parameter);
-  }
 }
 
 fn save_browsewith(is_admin:bool) {
@@ -820,7 +833,7 @@ fn registry_remove_value(hkey:HKEY, path:&str, value:&str) {
   length of lpData (cbData) is expected to be calculated
   from a double word Vec<u32>
 */
-use winapi::shared::minwindef::{ BYTE, DWORD };
+use winapi::shared::minwindef::{ BYTE, DWORD, HKEY__ };
 use std::ffi::OsStr;
 use std::os::windows::ffi::{ OsStrExt };
 
@@ -833,7 +846,7 @@ fn registry_add_value_raw(hkey:&RegKey, path_and_key:&str, value:&str, reg_type:
 
   unsafe {
     winreg_api::RegSetValueExW(
-      hkey.raw_handle(),
+      hkey.raw_handle()as *mut HKEY__,
       key.as_ptr(),
       0,
       reg_type as DWORD,

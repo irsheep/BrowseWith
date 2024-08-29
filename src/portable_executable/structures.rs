@@ -527,6 +527,7 @@ impl ResourceDataEntry {
   }
 }
 
+#[allow(dead_code)]
 pub struct ResourceDirectoryString {
   pub length: [u8; 2],
   pub string: String

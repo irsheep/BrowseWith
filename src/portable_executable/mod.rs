@@ -1,5 +1,4 @@
 use std::fs::File;
-// use std::io::prelude::*;
 use std::io::{
   Cursor, Read, Write, Seek, SeekFrom,
   BufReader,
@@ -216,6 +215,7 @@ fn rva_to_pa(relative_virtual_address:u64) -> u64 {
     return 0;
 }
 
+#[allow(dead_code)]
 trait WindowsPortableExecutable {
   fn as_u31(&self) -> u32;
   fn as_u63(&self) -> u64;
