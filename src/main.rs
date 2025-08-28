@@ -284,6 +284,7 @@ fn show_application_window(configuration:config::Configuration) {
     app.activate();
     return 0.into();
   });
+    // let mut app_clone = application.clone();
 
   // Application ::active signal handler
   application.connect_activate(move |app| {
@@ -304,6 +305,18 @@ fn show_application_window(configuration:config::Configuration) {
     let button_margin_last:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing, right: icon_spacing, bottom: 0 };
     let header_title:String = String::from("Browsewith"); //format!("Browsewith v{}", env!("CARGO_PKG_VERSION"));
 
+    let spacing:i32 = 5;
+    let grid = gtk::Grid::builder()
+      .margin_start(spacing)
+      .margin_end(spacing)
+      .margin_top(spacing)
+      .margin_bottom(spacing)
+      .halign(gtk::Align::Center)
+      .valign(gtk::Align::Center)
+      .row_spacing(spacing)
+      .column_spacing(spacing)
+      .build();
+
     // let window_position = match configuration.settings.window.position.as_str() {
     //   "none" => WindowPosition::None,
     //   "mouse" => WindowPosition::Mouse,
@@ -318,20 +331,25 @@ fn show_application_window(configuration:config::Configuration) {
       // .window_position(window_position)
       .build();
 
-    // Add all browsers as icons to a Box widget, creating a new child Box widget
-    // for every 'icons_per_row' browsers
-    // icons_box.add(&icons_row);
+    let mut button:gtk::Button;
+    let mut row:i32 = 2;
+    let mut col:i32 = 0;
+    let mut i:i32 = 0;
     for browser in configuration.browsers_list.clone() {
-      if icon_counter % icons_per_row == 0 {
-        button_with_image(&app, &icons_row, &configuration.settings.buttons, &browser,  button_margin_last);
-        icons_row = Box::new(Orientation::Horizontal, 0);
-        // icons_box.add(&icons_row);
-      } else {
-        button_with_image(&app, &icons_row, &configuration.settings.buttons, &browser, button_margin_default);
+      let value = app.clone();
+
+      button = button_with_image(&browser.title, &browser.icon);
+      button.connect_clicked(move |_| {button_clicked(&value, &browser.clone())});
+
+      grid.attach(&button, col, row, 1, 1);
+
+      col = col + 1;
+      if col % icons_per_row == 0 {
+        row = row + 1;
+        col = 0;
       }
-      icon_counter = icon_counter + 1;
     }
-    // window_box.add(&icons_box);
+    window.set_child(Some(&grid));
 
     // Check if we need to add taget URL host information
     if configuration.settings.host_info {
@@ -398,42 +416,38 @@ fn show_application_window(configuration:config::Configuration) {
   application.run();
 }
 
-fn button_with_image(application:&Application, box_object:&Box, button_properties:&config::ButtonProperties, browser_settings:&config::BrowserSettings, margins:ButtonMargins) {
-  let browser_settings_clone:config::BrowserSettings;
-  let application_clone:Application;
-  let image:Image;
-  let image_position:PositionType;
-  let button:Button;
+fn button_with_image(message:&str, image_file:&str) -> gtk::Button {
+  let button:gtk::Button;
+  let child:gtk::Box;
+  let image:gtk::Image;
+  let label:gtk::Label;
 
-  // Clone application and browser_settings so we can pass them to
-  // the closure in button connect_clicked
-  application_clone = application.clone();
-  browser_settings_clone = browser_settings.clone();
-  image_position = match button_properties.image_position.as_str() {
-    "top" => PositionType::Top,
-    "bottom" => PositionType::Bottom,
-    "right" => PositionType::Right,
-    _ => PositionType::Left
-  };
+  let width:i32 = 180;
+  let height:i32 = 70;
+  let spacing:i32 = 5;
+  let image_size:i32 = 32;
 
-  image = get_icon_image(&browser_settings.icon);
-
-  button = Button::builder()
-    .width_request(button_properties.width).height_request(button_properties.height)
-    // .image(&image).always_show_image(button_properties.show_image).image_position(image_position)
-    .margin_start(margins.left)
-    .margin_top(margins.top)
-    .margin_end(margins.right)
-    .margin_bottom(margins.bottom)
+  // Build the button elements
+  button = gtk::Button::builder()
+    .width_request(width).height_request(height)
     .build();
-  if button_properties.show_label || !button_properties.show_image {
-    button.set_label(&browser_settings.title);
-    button.set_use_underline(true);
-  }
-  button.connect_clicked(move |_| {button_clicked(&application_clone, &browser_settings_clone)});
+  child = gtk::Box::builder()
+    .orientation(gtk::Orientation::Horizontal)
+    .halign(gtk::Align::Center)
+    .spacing(spacing)
+    .build();
+  image = get_icon_image(&image_file.to_string());
+  label = gtk::Label::builder()
+    .label(message)
+    .build();
 
-  // Add to the main window
-  // box_object.add(&button);
+  // Add the image and label to the button,
+  // inside a GtkBox
+  child.append(&image);
+  child.append(&label);
+  button.set_child(Some(&child));
+
+  return button;
 }
 
 fn button_clicked<'a>(application:&Application, browser_settings:&'a config::BrowserSettings ) {
