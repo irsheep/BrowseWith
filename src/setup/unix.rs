@@ -180,7 +180,7 @@ pub fn load_icon() {
   if icon_file_path.is_file() {
     // Assign the icon to the main window
     icon_file = Pixbuf::from_file(icon_file_path).unwrap();
-    gtk::Window::set_default_icon(&icon_file);
+    // gtk::Window::set_default_icon(&icon_file);
   }
 }
 

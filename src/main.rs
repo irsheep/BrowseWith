@@ -3,11 +3,15 @@
 
 use gtk::{
   prelude::*,
-  ButtonsType, MessageType, HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, WindowPosition, MessageDialog,
+  ButtonsType, MessageType, HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, MessageDialog,
   gio::{ ApplicationFlags },
-  pango::{ EllipsizeMode },
-  builders::{ ImageBuilder }
+  pango::{ EllipsizeMode }
 };
+use gtk::builders::ImageBuilder;
+// use gtk::prelude::*;
+// use gtk::{glib, Application};
+
+// use glib::ControlFlow;
 use glib::clone;
 
 use std::process::{ Command, Stdio, exit };
@@ -153,9 +157,9 @@ async fn main() {
                 .title("Invalid URL")
                 .text("URL is blocked due\nto invalid characters")
                 .build();
-              dialog.run();
-              dialog.emit_close();
-              gtk::main_iteration();
+              dialog.show();
+              // dialog.emit_close();
+              // gtk::main_iteration();
             } else if
               check_url(&u, x.utf16, config::CharsetList::Utf16) == config::CharsetPolicyAction::Warn ||
               check_url(&u, x.utf32, config::CharsetList::Utf32) == config::CharsetPolicyAction::Warn
@@ -278,7 +282,7 @@ fn show_application_window(configuration:config::Configuration) {
   */
   application.connect_command_line( move |app, _cli_arguments| {
     app.activate();
-    return 0;
+    return 0.into();
   });
 
   // Application ::active signal handler
@@ -295,58 +299,58 @@ fn show_application_window(configuration:config::Configuration) {
     let button_width:i32 = configuration.settings.buttons.width;
     let button_height:i32 = configuration.settings.buttons.height;
     let window_always_ontop:bool = configuration.settings.window.always_ontop;
-    let window_position:WindowPosition;
+    // let window_position:WindowPosition;
     let button_margin_default:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing_top, right: 0, bottom: 0 };
     let button_margin_last:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing, right: icon_spacing, bottom: 0 };
     let header_title:String = String::from("Browsewith"); //format!("Browsewith v{}", env!("CARGO_PKG_VERSION"));
 
-    window_position = match configuration.settings.window.position.as_str() {
-      "none" => WindowPosition::None,
-      "mouse" => WindowPosition::Mouse,
-      _ => WindowPosition::Center
-    };
+    // let window_position = match configuration.settings.window.position.as_str() {
+    //   "none" => WindowPosition::None,
+    //   "mouse" => WindowPosition::Mouse,
+    //   _ => WindowPosition::Center
+    // };
 
     let window = ApplicationWindow::builder()
       .application(app)
       .title("BrowseWith")
       .default_width(button_width + icon_spacing * 2)
       .default_height(button_height)
-      .window_position(window_position)
+      // .window_position(window_position)
       .build();
 
     // Add all browsers as icons to a Box widget, creating a new child Box widget
     // for every 'icons_per_row' browsers
-    icons_box.add(&icons_row);
+    // icons_box.add(&icons_row);
     for browser in configuration.browsers_list.clone() {
       if icon_counter % icons_per_row == 0 {
         button_with_image(&app, &icons_row, &configuration.settings.buttons, &browser,  button_margin_last);
         icons_row = Box::new(Orientation::Horizontal, 0);
-        icons_box.add(&icons_row);
+        // icons_box.add(&icons_row);
       } else {
         button_with_image(&app, &icons_row, &configuration.settings.buttons, &browser, button_margin_default);
       }
       icon_counter = icon_counter + 1;
     }
-    window_box.add(&icons_box);
+    // window_box.add(&icons_box);
 
     // Check if we need to add taget URL host information
     if configuration.settings.host_info {
       hostinfo_box = diplay_host_info(button_width * icons_per_row + icon_spacing * icons_per_row - icon_spacing);
-      window_box.add(&hostinfo_box);
+      // window_box.add(&hostinfo_box);
     } else {
-      window_box.add(
-        &Box::builder()
-          .margin_bottom(configuration.settings.buttons.spacing)
-          .build()
-      );
+      // window_box.add(
+      //   &Box::builder()
+      //     .margin_bottom(configuration.settings.buttons.spacing)
+      //     .build()
+      // );
     }
 
     #[cfg(target_family = "unix")] {
       // Build a title bar
       header_bar = HeaderBar::builder()
-        .title(header_title.as_str())
+        // .title(header_title.as_str())
         .decoration_layout("menu:close")
-        .show_close_button(true)
+        // .show_close_button(true)
         .build();
     }
     #[cfg(target_family = "windows")] {
@@ -379,15 +383,15 @@ fn show_application_window(configuration:config::Configuration) {
     }
 
     // Traits from GtkWindowExt
-    window.set_keep_above(window_always_ontop);
+    // window.set_keep_above(window_always_ontop);
     window.set_resizable(false);
     window.set_titlebar(Some(&header_bar));
 
     setup::load_icon();
 
     // Display main windows with all the components
-    window.add(&window_box);
-    window.show_all();
+    // window.add(&window_box);
+    window.show();
 
   });
 
@@ -416,7 +420,7 @@ fn button_with_image(application:&Application, box_object:&Box, button_propertie
 
   button = Button::builder()
     .width_request(button_properties.width).height_request(button_properties.height)
-    .image(&image).always_show_image(button_properties.show_image).image_position(image_position)
+    // .image(&image).always_show_image(button_properties.show_image).image_position(image_position)
     .margin_start(margins.left)
     .margin_top(margins.top)
     .margin_end(margins.right)
@@ -429,7 +433,7 @@ fn button_with_image(application:&Application, box_object:&Box, button_propertie
   button.connect_clicked(move |_| {button_clicked(&application_clone, &browser_settings_clone)});
 
   // Add to the main window
-  box_object.add(&button);
+  // box_object.add(&button);
 }
 
 fn button_clicked<'a>(application:&Application, browser_settings:&'a config::BrowserSettings ) {
@@ -477,7 +481,7 @@ fn diplay_host_info(max_width:i32) -> Box {
   // Create the Label objects
   label_url = Label::builder()
     .halign(Align::Start)
-    .expand(false)
+    .hexpand(false)
     .width_request(max_width - icon_spacing - download_icon_size)
     .margin_start(download_icon_size / 2)
     .max_width_chars(30)
@@ -488,7 +492,7 @@ fn diplay_host_info(max_width:i32) -> Box {
 
   button = Button::builder()
     .halign(Align::End)
-    .expand(false)
+    .hexpand(false)
     .margin_start(icon_spacing + 13)
     .can_focus(false)
     .sensitive(false)
@@ -496,7 +500,7 @@ fn diplay_host_info(max_width:i32) -> Box {
     .build();
 
   if pathbuf.exists() {
-    button.set_image(Some(&image));
+    // button.set_image(Some(&image));
   } else {
     button.set_label("\u{2193}");
     button.set_width_request(24);
@@ -513,8 +517,8 @@ fn diplay_host_info(max_width:i32) -> Box {
     .halign(Align::Start)
     .build();
 
-  box_object.add(&label_url);
-  box_object.add(&button);
+  // box_object.add(&label_url);
+  // box_object.add(&button);
 
   button.connect_clicked(move |_| {
 
@@ -533,14 +537,14 @@ fn diplay_host_info(max_width:i32) -> Box {
       ).as_str()
     );
 
-    match release_dialog.run() {
-      gtk::ResponseType::Ok => {
-        label_url.set_label(format!("Url: {}", git_release.html_url).as_str());
-        URL.with(|v| {*v.borrow_mut() = git_release.html_url});
-      },
-      _ => { }
-    };
-    release_dialog.close();
+    // match release_dialog.run() {
+    //   gtk::ResponseType::Ok => {
+    //     label_url.set_label(format!("Url: {}", git_release.html_url).as_str());
+    //     URL.with(|v| {*v.borrow_mut() = git_release.html_url});
+    //   },
+    //   _ => { }
+    // };
+    // release_dialog.close();
 
   });
 
@@ -627,13 +631,13 @@ fn get_icon_image(file_path:&String) -> Image {
   }
 
   if icon_file.is_file() {
-    image = ImageBuilder::new()
+    image = Image::builder()
       .file(icon_file.to_str().unwrap())
       .width_request(width_height)
       .height_request(width_height)
       .build();
   } else {
-    image = ImageBuilder::new()
+    image = Image::builder()
       .icon_name(file_path)
       .width_request(width_height)
       .height_request(width_height)
@@ -677,19 +681,20 @@ fn show_dialog(url:&str) -> bool {
     .build();
     // println!("{}:{} show_dialog: built", file!(), line!());
 
-  match message_dialog.run() {
-    gtk::ResponseType::Yes => {
-      message_dialog.emit_close();
-      gtk::main_iteration();
-      return true;
-    }
-    _ => {
-      println!("Aborting due to invalid characters in URL");
-      message_dialog.emit_close();
-      gtk::main_iteration();
-      return false;
-    }
-  }
+  // match message_dialog.run() {
+  //   gtk::ResponseType::Yes => {
+  //     message_dialog.emit_close();
+  //     // gtk::main_iteration();
+  //     return true;
+  //   }
+  //   _ => {
+  //     println!("Aborting due to invalid characters in URL");
+  //     message_dialog.emit_close();
+  //     // gtk::main_iteration();
+  //     return false;
+  //   }
+  // }
+  return true;
 }
 
 fn check_url(url:&str, action:config::CharsetPolicyAction, charset:config::CharsetList) -> config::CharsetPolicyAction {

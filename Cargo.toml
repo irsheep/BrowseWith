@@ -27,8 +27,9 @@ ureq = { version = "2.10", features = ["json", "charset"] }
 version-compare = "0.2"
 
 [dependencies.gtk]
-version = "0.18"
-features = ["v3_24_30"]
+package = "gtk4"
+version = "0.10.0"
+features = ["v4_2"]
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.29", features = [ "user"] }
