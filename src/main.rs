@@ -403,7 +403,6 @@ fn show_application_window(configuration:config::Configuration) {
     setup::load_icon();
 
     // Display main windows with all the components
-    // window.add(&window_box);
     window.show();
 
   });
@@ -434,12 +433,15 @@ fn button_with_image(message:&str, image_file:&str) -> gtk::Button {
   image = get_icon_image(&image_file.to_string());
   label = gtk::Label::builder()
     .label(message)
+    .use_underline(true)
     .build();
 
   // Add the image and label to the button,
   // inside a GtkBox
   child.append(&image);
   child.append(&label);
+
+  // button.with_mnemonic(message);
   button.set_child(Some(&child));
 
   return button;
