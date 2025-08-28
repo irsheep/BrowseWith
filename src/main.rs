@@ -284,7 +284,6 @@ fn show_application_window(configuration:config::Configuration) {
     app.activate();
     return 0.into();
   });
-    // let mut app_clone = application.clone();
 
   // Application ::active signal handler
   application.connect_activate(move |app| {
@@ -306,16 +305,6 @@ fn show_application_window(configuration:config::Configuration) {
     let header_title:String = String::from("Browsewith"); //format!("Browsewith v{}", env!("CARGO_PKG_VERSION"));
 
     let spacing:i32 = 5;
-    let grid = gtk::Grid::builder()
-      .margin_start(spacing)
-      .margin_end(spacing)
-      .margin_top(spacing)
-      .margin_bottom(spacing)
-      .halign(gtk::Align::Center)
-      .valign(gtk::Align::Center)
-      .row_spacing(spacing)
-      .column_spacing(spacing)
-      .build();
 
     // let window_position = match configuration.settings.window.position.as_str() {
     //   "none" => WindowPosition::None,
@@ -330,9 +319,20 @@ fn show_application_window(configuration:config::Configuration) {
       .default_height(button_height)
       // .window_position(window_position)
       .build();
+    let grid = gtk::Grid::builder()
+      .margin_start(spacing)
+      .margin_end(spacing)
+      .margin_top(spacing)
+      .margin_bottom(spacing)
+      .halign(gtk::Align::Center)
+      .valign(gtk::Align::Center)
+      .row_spacing(spacing)
+      .column_spacing(spacing)
+      .build();
+    // let host_info = diplay_host_info(170*3*5);
 
     let mut button:gtk::Button;
-    let mut row:i32 = 2;
+    let mut row:i32 = 0;
     let mut col:i32 = 0;
     let mut i:i32 = 0;
     for browser in configuration.browsers_list.clone() {
@@ -349,19 +349,14 @@ fn show_application_window(configuration:config::Configuration) {
         col = 0;
       }
     }
-    window.set_child(Some(&grid));
 
     // Check if we need to add taget URL host information
     if configuration.settings.host_info {
       hostinfo_box = diplay_host_info(button_width * icons_per_row + icon_spacing * icons_per_row - icon_spacing);
-      // window_box.add(&hostinfo_box);
-    } else {
-      // window_box.add(
-      //   &Box::builder()
-      //     .margin_bottom(configuration.settings.buttons.spacing)
-      //     .build()
-      // );
+      grid.attach(&hostinfo_box, 0, row+1, icons_per_row, 1);
     }
+
+    window.set_child(Some(&grid));
 
     #[cfg(target_family = "unix")] {
       // Build a title bar
@@ -531,8 +526,8 @@ fn diplay_host_info(max_width:i32) -> Box {
     .halign(Align::Start)
     .build();
 
-  // box_object.add(&label_url);
-  // box_object.add(&button);
+  box_object.append(&label_url);
+  box_object.append(&button);
 
   button.connect_clicked(move |_| {
 
@@ -551,6 +546,7 @@ fn diplay_host_info(max_width:i32) -> Box {
       ).as_str()
     );
 
+    println!("button.connect_clicked");
     // match release_dialog.run() {
     //   gtk::ResponseType::Ok => {
     //     label_url.set_label(format!("Url: {}", git_release.html_url).as_str());
@@ -610,7 +606,7 @@ fn get_icon_image(file_path:&String) -> Image {
     let parts:Vec<&str>;
     let source:String;
     let index:usize;
-    
+
     let mut b64_file_path = String::new();
     general_purpose::STANDARD.encode_string(file_path, &mut b64_file_path);
 
@@ -708,6 +704,7 @@ fn show_dialog(url:&str) -> bool {
   //     return false;
   //   }
   // }
+  println!("fn show_dialog");
   return true;
 }
 
