@@ -536,7 +536,7 @@ fn diplay_host_info(max_width:i32) -> Box {
     let mut git_release:update::Releases = update::Releases::initialize();
     GIT_RELEASE.with(|v| { git_release = v.clone().into_inner() });
 
-    let release_dialog = MessageDialog::new(
+    let _release_dialog = gtk::MessageDialog::new(
       None::<&gtk::Window>,
       gtk::DialogFlags::MODAL,
       MessageType::Info,
@@ -547,6 +547,15 @@ fn diplay_host_info(max_width:i32) -> Box {
         git_release.version
       ).as_str()
     );
+    let release_dialog = gtk::MessageDialog::builder()
+      .message_type(gtk::MessageType::Info)
+      .buttons(gtk::ButtonsType::YesNo)
+      .text(format!(
+        "A new release of BrowseWith is available:\nCurrent: {}\nNew: {}\nDo you want to set the URL to the new release page?",
+        env!("CARGO_PKG_VERSION"),
+        git_release.version
+      ).as_str())
+      .build();
 
     println!("button.connect_clicked");
     // match release_dialog.run() {
