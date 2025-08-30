@@ -46,7 +46,7 @@ pub enum CharsetList {
   Utf32
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ButtonProperties {
   pub width: i32,
   pub height: i32,
@@ -57,7 +57,7 @@ pub struct ButtonProperties {
   pub image_position: String
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct WindowProperties {
   pub always_ontop: bool,
   pub position: String,
@@ -70,7 +70,7 @@ pub struct CharsetPolicy {
   pub utf32:CharsetPolicyAction
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Settings {
   pub homepage: String,
   pub host_info: bool,
@@ -88,7 +88,7 @@ pub struct BrowserSettings {
   pub auto_launch: Option<Vec<String>>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Configuration {
   pub settings: Settings,
   pub browsers_list: Vec<BrowserSettings>

@@ -139,6 +139,9 @@ async fn main() {
 
       URL.with(|v| {url_list = v.borrow().to_string();});
 
+      // let b = configuration.clone();
+      // show_application_window(b);
+
       charset_policy = configuration.settings.charset_policy;
       url_list.split(",").for_each( |u| {
         // Exit if the URL has 'invalid' characters
@@ -153,6 +156,7 @@ async fn main() {
                 println!("Failed to initialize GTK.");
                 exit(1);
               };
+
               let dialog:MessageDialog = MessageDialog::builder()
                 .buttons(ButtonsType::Ok)
                 .message_type(MessageType::Error)
@@ -722,29 +726,28 @@ fn start_browser(browser_settings:config::BrowserSettings, url:&str, application
   }
 }
 
-fn show_dialog(_url:&str) -> bool {
-  // let message_dialog:MessageDialog = MessageDialog::builder()
-  //   .buttons(ButtonsType::YesNo)
-  //   .message_type(MessageType::Warning)
-  //   .title("Invalid URL")
-  //   .text(format!("The URL '{}' might contain invalid characters\nAre you sure that you want to proceed?", url))
-  //   .build();
-    // println!("{}:{} show_dialog: built", file!(), line!());
+fn show_dialog(url:&str) -> bool {
+    let application = gtk::Application::builder()
+        .application_id("com.github.gtk-rs.examples.grid-packing")
+        .build();
 
-  // match message_dialog.run() {
-  //   gtk::ResponseType::Yes => {
-  //     message_dialog.emit_close();
-  //     // gtk::main_iteration();
-  //     return true;
-  //   }
-  //   _ => {
-  //     println!("Aborting due to invalid characters in URL");
-  //     message_dialog.emit_close();
-  //     // gtk::main_iteration();
-  //     return false;
-  //   }
-  // }
-  println!("fn show_dialog");
+    application.run();
+
+      let release_dialog = MessageWindow {
+        callback_yes: Some(callback_null),
+        callback_no: Some(callback_url),
+        ..Default::default()
+      };
+
+      release_dialog.show(
+        &application,
+        None,
+        "Invalid URL",
+        format!("The URL '{}' might contain invalid characters\nAre you sure that you want to proceed?", url).as_str(),
+        gtk::MessageType::Warning,
+        gtk::ButtonsType::YesNo
+      );
+
   return true;
 }
 
@@ -770,4 +773,10 @@ fn check_url(url:&str, action:config::CharsetPolicyAction, charset:config::Chars
   }
 
   return config::CharsetPolicyAction::Allow;
+}
+
+fn callback_null() {}
+fn callback_url() {
+  println!("Aborting due to invalid characters in URL");
+  exit(0);
 }
