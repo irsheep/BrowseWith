@@ -3,11 +3,11 @@
 
 use gtk::{
   prelude::*,
-  ButtonsType, MessageType, HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, PositionType, Label, MessageDialog,
+  ButtonsType, MessageType, HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, Label, MessageDialog,
   gio::{ ApplicationFlags },
   pango::{ EllipsizeMode }
 };
-use gtk::builders::ImageBuilder;
+// use gtk::builders::ImageBuilder;
 // use gtk::prelude::*;
 // use gtk::{glib, Application};
 
@@ -39,18 +39,20 @@ mod config;
 mod webclient;
 mod setup;
 mod update;
+mod message_window;
+use crate::message_window::MessageWindow;
 // Windows specific modules
 #[cfg(target_family = "windows")] use std::fs::{ create_dir };
 #[cfg(target_family = "windows")] mod portable_executable;
 #[cfg(target_family = "windows")] extern crate base64;
 
-#[derive(Clone, Copy)]
-struct ButtonMargins {
-  left: i32,
-  top: i32,
-  right: i32,
-  bottom: i32
-}
+// #[derive(Clone, Copy)]
+// struct ButtonMargins {
+//   left: i32,
+//   top: i32,
+//   right: i32,
+//   bottom: i32
+// }
 
 thread_local!(
   static URL:RefCell<String> = RefCell::new(String::new());
@@ -288,21 +290,21 @@ fn show_application_window(configuration:config::Configuration) {
   // Application ::active signal handler
   application.connect_activate(move |app| {
     let header_bar:HeaderBar;
-    let window_box:Box = Box::new(Orientation::Vertical, 0);
-    let icons_box:Box = Box::new(Orientation::Vertical, 0);
+    // let window_box:Box = Box::new(Orientation::Vertical, 0);
+    // let icons_box:Box = Box::new(Orientation::Vertical, 0);
     let hostinfo_box:Box;
-    let mut icons_row:Box = Box::new(Orientation::Horizontal, 0);
-    let mut icon_counter:i32 = 1;
+    // let mut icons_row:Box = Box::new(Orientation::Horizontal, 0);
+    // let mut icon_counter:i32 = 1;
     let icons_per_row:i32 = configuration.settings.buttons.per_row;
     let icon_spacing:i32 = configuration.settings.buttons.spacing;
-    let icon_spacing_top:i32 = configuration.settings.buttons.spacing;
+    // let icon_spacing_top:i32 = configuration.settings.buttons.spacing;
     let button_width:i32 = configuration.settings.buttons.width;
     let button_height:i32 = configuration.settings.buttons.height;
-    let window_always_ontop:bool = configuration.settings.window.always_ontop;
+    // let window_always_ontop:bool = configuration.settings.window.always_ontop;
     // let window_position:WindowPosition;
-    let button_margin_default:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing_top, right: 0, bottom: 0 };
-    let button_margin_last:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing, right: icon_spacing, bottom: 0 };
-    let header_title:String = String::from("Browsewith"); //format!("Browsewith v{}", env!("CARGO_PKG_VERSION"));
+    // let button_margin_default:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing_top, right: 0, bottom: 0 };
+    // let button_margin_last:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing, right: icon_spacing, bottom: 0 };
+    // let header_title:String = String::from("Browsewith"); //format!("Browsewith v{}", env!("CARGO_PKG_VERSION"));
 
     let spacing:i32 = 5;
 
@@ -334,7 +336,7 @@ fn show_application_window(configuration:config::Configuration) {
     let mut button:gtk::Button;
     let mut row:i32 = 0;
     let mut col:i32 = 0;
-    let mut i:i32 = 0;
+    // let mut i:i32 = 0;
     for browser in configuration.browsers_list.clone() {
       let value = app.clone();
 
@@ -352,7 +354,7 @@ fn show_application_window(configuration:config::Configuration) {
 
     // Check if we need to add taget URL host information
     if configuration.settings.host_info {
-      hostinfo_box = diplay_host_info(button_width * icons_per_row + icon_spacing * icons_per_row - icon_spacing);
+      hostinfo_box = diplay_host_info(&app, &window, button_width * icons_per_row + icon_spacing * icons_per_row - icon_spacing);
       grid.attach(&hostinfo_box, 0, row+1, icons_per_row, 1);
     }
 
@@ -419,7 +421,7 @@ fn button_with_image(message:&str, image_file:&str) -> gtk::Button {
   let width:i32 = 180;
   let height:i32 = 70;
   let spacing:i32 = 5;
-  let image_size:i32 = 32;
+  // let image_size:i32 = 32;
 
   // Build the button elements
   button = gtk::Button::builder()
@@ -460,13 +462,13 @@ fn close_app<'a>(application:&'a Application) {
   application.quit();
 }
 
-fn diplay_host_info(max_width:i32) -> Box {
+fn diplay_host_info(application:&Application, window:&ApplicationWindow, max_width:i32) -> Box {
   let mut icon_spacing:i32 = 0;
   let download_icon_size:i32 = 100;
   let box_object:Box;
   let button:Button;
   let pathbuf:PathBuf = config::get_resource_path("icons", "download.png");
-  let image:Image = Image::from_file(pathbuf.clone());
+  // let image:Image = Image::from_file(pathbuf.clone());
   let label_url:Label;
   let mut url:String = String::new();
   let url_label:String;
@@ -531,6 +533,9 @@ fn diplay_host_info(max_width:i32) -> Box {
   box_object.append(&label_url);
   box_object.append(&button);
 
+  let window_clone = window.clone();
+  let application_clone = application.clone();
+
   button.connect_clicked(move |_| {
 
     let mut git_release:update::Releases = update::Releases::initialize();
@@ -547,7 +552,7 @@ fn diplay_host_info(max_width:i32) -> Box {
         git_release.version
       ).as_str()
     );
-    let release_dialog = gtk::MessageDialog::builder()
+    let _d_release_dialog = gtk::MessageDialog::builder()
       .message_type(gtk::MessageType::Info)
       .buttons(gtk::ButtonsType::YesNo)
       .text(format!(
@@ -557,6 +562,23 @@ fn diplay_host_info(max_width:i32) -> Box {
       ).as_str())
       .build();
 
+      let release_dialog = MessageWindow {
+        callback_yes: Some(release_dialog_yes),
+        ..Default::default()
+      };
+
+      release_dialog.show(
+        &application_clone,
+        Some(&window_clone),
+        "Update available",
+        format!(
+          "A new release of BrowseWith is available:\nCurrent: {}\nNew: {}\nDo you want to set the URL to the new release page?",
+          env!("CARGO_PKG_VERSION"),
+          git_release.version
+        ).as_str(),
+        gtk::MessageType::Other,
+        gtk::ButtonsType::YesNo
+      );
     println!("button.connect_clicked");
     // match release_dialog.run() {
     //   gtk::ResponseType::Ok => {
@@ -603,6 +625,13 @@ fn diplay_host_info(max_width:i32) -> Box {
   }));
 
   return box_object;
+}
+
+fn release_dialog_yes() {
+  //     let mut git_release:update::Releases = update::Releases::initialize();
+  //   GIT_RELEASE.with(|v| { git_release = v.clone().into_inner() });
+  // label_url.set_label(format!("Url: {}", git_release.html_url).as_str());
+  // URL.with(|v| {*v.borrow_mut() = git_release.html_url});
 }
 
 fn get_icon_image(file_path:&String) -> Image {
@@ -693,13 +722,13 @@ fn start_browser(browser_settings:config::BrowserSettings, url:&str, application
   }
 }
 
-fn show_dialog(url:&str) -> bool {
-  let message_dialog:MessageDialog = MessageDialog::builder()
-    .buttons(ButtonsType::YesNo)
-    .message_type(MessageType::Warning)
-    .title("Invalid URL")
-    .text(format!("The URL '{}' might contain invalid characters\nAre you sure that you want to proceed?", url))
-    .build();
+fn show_dialog(_url:&str) -> bool {
+  // let message_dialog:MessageDialog = MessageDialog::builder()
+  //   .buttons(ButtonsType::YesNo)
+  //   .message_type(MessageType::Warning)
+  //   .title("Invalid URL")
+  //   .text(format!("The URL '{}' might contain invalid characters\nAre you sure that you want to proceed?", url))
+  //   .build();
     // println!("{}:{} show_dialog: built", file!(), line!());
 
   // match message_dialog.run() {

@@ -10,7 +10,7 @@ use std::ops::Range;
 use nix::unistd::{ Uid, getuid };
 
 use gtk::glib::{ Bytes };
-use gtk::gdk_pixbuf::{ Pixbuf };
+// use gtk::gdk_pixbuf::{ Pixbuf };
 use bitflags::bitflags;
 use ini::{ Ini, Properties };
 
@@ -153,7 +153,7 @@ pub fn is_privileged_user() -> bool {
 pub fn load_icon() {
   let icon_path:PathBuf;
   let icon_file_path:PathBuf;
-  let icon_file:Pixbuf;
+  // let icon_file:Pixbuf;
   let icon_raw:&[u8];
   let icon_bytes:Bytes;
 
@@ -179,7 +179,7 @@ pub fn load_icon() {
   // Confirm that the icon was successfully created before loading
   if icon_file_path.is_file() {
     // Assign the icon to the main window
-    icon_file = Pixbuf::from_file(icon_file_path).unwrap();
+    // icon_file = Pixbuf::from_file(icon_file_path).unwrap();
     // gtk::Window::set_default_icon(&icon_file);
   }
 }
