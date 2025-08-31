@@ -346,7 +346,7 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
 
     // Check if we need to add taget URL host information
     if configuration.settings.host_info {
-      hostinfo_box = diplay_host_info(&app, &window, button_width * icons_per_row + icon_spacing * icons_per_row - icon_spacing);
+      hostinfo_box = diplay_host_info(&window, button_width * icons_per_row + icon_spacing * icons_per_row - icon_spacing);
       grid.attach(&hostinfo_box, 0, row+1, icons_per_row, 1);
     }
 
@@ -465,13 +465,13 @@ fn close_app<'a>(application:&'a Application) {
   application.quit();
 }
 
-fn diplay_host_info(application:&Application, window:&ApplicationWindow, max_width:i32) -> Box {
+fn diplay_host_info(window:&ApplicationWindow, max_width:i32) -> Box {
   let mut icon_spacing:i32 = 0;
   let download_icon_size:i32 = 100;
   let box_object:Box;
   let button:Button;
   let pathbuf:PathBuf = config::get_resource_path("icons", "download.png");
-  // let image:Image = Image::from_file(pathbuf.clone());
+  let image:Image = Image::from_file(pathbuf.clone());
   let label_url:Label;
   let mut url:String = String::new();
   let url_label:String;
@@ -496,6 +496,7 @@ fn diplay_host_info(application:&Application, window:&ApplicationWindow, max_wid
 
   // Create the Label objects
   label_url = Label::builder()
+    .name("lblurl")
     .halign(Align::Start)
     .hexpand(false)
     .width_request(max_width - icon_spacing - download_icon_size)
@@ -513,10 +514,11 @@ fn diplay_host_info(application:&Application, window:&ApplicationWindow, max_wid
     .can_focus(false)
     .sensitive(false)
     .tooltip_text("Checking for updates")
+    // .icon_name("epiphany-download")
     .build();
 
   if pathbuf.exists() {
-    // button.set_image(Some(&image));
+    button.set_child(Some(&image));
   } else {
     button.set_label("\u{2193}");
     button.set_width_request(24);
@@ -537,60 +539,38 @@ fn diplay_host_info(application:&Application, window:&ApplicationWindow, max_wid
   box_object.append(&button);
 
   let window_clone = window.clone();
-  let application_clone = application.clone();
 
   button.connect_clicked(move |_| {
 
     let mut git_release:update::Releases = update::Releases::initialize();
     GIT_RELEASE.with(|v| { git_release = v.clone().into_inner() });
 
-    let _release_dialog = gtk::MessageDialog::new(
-      None::<&gtk::Window>,
-      gtk::DialogFlags::MODAL,
-      MessageType::Info,
-      ButtonsType::YesNo,
-      format!(
-        "A new release of BrowseWith is available:\nCurrent: {}\nNew: {}\nDo you want to set the URL to the new release page?",
-        env!("CARGO_PKG_VERSION"),
-        git_release.version
-      ).as_str()
-    );
-    let _d_release_dialog = gtk::MessageDialog::builder()
-      .message_type(gtk::MessageType::Info)
-      .buttons(gtk::ButtonsType::YesNo)
+    let release_dialog = gtk::MessageDialog::builder()
+      .message_type(MessageType::Info)
+      .buttons(ButtonsType::YesNo)
+      .modal(true)
+      .transient_for(&window_clone)
       .text(format!(
         "A new release of BrowseWith is available:\nCurrent: {}\nNew: {}\nDo you want to set the URL to the new release page?",
         env!("CARGO_PKG_VERSION"),
         git_release.version
       ).as_str())
-      .build();
+    .build();
 
-      let release_dialog = MessageWindow {
-        callback_yes: Some(release_dialog_yes),
-        ..Default::default()
-      };
+    let label_url_clone = label_url.clone();
+    release_dialog.show();
 
-      release_dialog.show(
-        &application_clone,
-        Some(&window_clone),
-        "Update available",
-        format!(
-          "A new release of BrowseWith is available:\nCurrent: {}\nNew: {}\nDo you want to set the URL to the new release page?",
-          env!("CARGO_PKG_VERSION"),
-          git_release.version
-        ).as_str(),
-        gtk::MessageType::Other,
-        gtk::ButtonsType::YesNo
-      );
-    println!("button.connect_clicked");
-    // match release_dialog.run() {
-    //   gtk::ResponseType::Ok => {
-    //     label_url.set_label(format!("Url: {}", git_release.html_url).as_str());
-    //     URL.with(|v| {*v.borrow_mut() = git_release.html_url});
-    //   },
-    //   _ => { }
-    // };
-    // release_dialog.close();
+    release_dialog.connect_response(move |obj, response| {
+      match response {
+        gtk::ResponseType::Yes => {
+          let html_url_clone = git_release.html_url.clone();
+          label_url_clone.set_label(format!("Url: {}", git_release.html_url).as_str());
+          URL.with(|v| {*v.borrow_mut() = html_url_clone});
+        },
+        _ => {}
+      }
+      obj.close();
+    });
 
   });
 
@@ -628,13 +608,6 @@ fn diplay_host_info(application:&Application, window:&ApplicationWindow, max_wid
   }));
 
   return box_object;
-}
-
-fn release_dialog_yes() {
-  //     let mut git_release:update::Releases = update::Releases::initialize();
-  //   GIT_RELEASE.with(|v| { git_release = v.clone().into_inner() });
-  // label_url.set_label(format!("Url: {}", git_release.html_url).as_str());
-  // URL.with(|v| {*v.borrow_mut() = git_release.html_url});
 }
 
 fn get_icon_image(file_path:&String) -> Image {
