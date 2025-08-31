@@ -1,9 +1,9 @@
 #![windows_subsystem = "windows"]
-#![deny(unused_crate_dependencies)]
+// #![deny(unused_crate_dependencies)]
 
 use gtk::{
   prelude::*,
-  ButtonsType, MessageType, HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, Label, MessageDialog,
+  ButtonsType, MessageType, HeaderBar, Application, ApplicationWindow, Button, Image, Box, Orientation, Align, Label,
   gio::{ ApplicationFlags },
   pango::{ EllipsizeMode }
 };
@@ -139,11 +139,7 @@ async fn main() {
 
       URL.with(|v| {url_list = v.borrow().to_string();});
 
-      // let b = configuration.clone();
-      // show_application_window(b);
-
       charset_policy = configuration.settings.charset_policy;
-      // show_application_window(configuration.clone());
 
       url_list.split(",").for_each( |u| {
         // Exit if the URL has 'invalid' characters
@@ -233,6 +229,7 @@ async fn main() {
 
       show_application_window(configuration);
       exit(0);
+
     },
     0 => {
       #[cfg(target_family = "windows")] send_return();
@@ -271,7 +268,7 @@ fn show_application_window(configuration:config::Configuration) {
   let application = Application::builder()
     .application_id("com.sheep.browsewith")
     .flags(ApplicationFlags::HANDLES_COMMAND_LINE)
-    .build();
+  .build();
 
   // Application ::command-line signal handler
   /* NOTE:
@@ -288,36 +285,19 @@ fn show_application_window(configuration:config::Configuration) {
   // Application ::active signal handler
   application.connect_activate(move |app| {
     let header_bar:HeaderBar;
-    // let window_box:Box = Box::new(Orientation::Vertical, 0);
-    // let icons_box:Box = Box::new(Orientation::Vertical, 0);
     let hostinfo_box:Box;
-    // let mut icons_row:Box = Box::new(Orientation::Horizontal, 0);
-    // let mut icon_counter:i32 = 1;
     let icons_per_row:i32 = configuration.settings.buttons.per_row;
     let icon_spacing:i32 = configuration.settings.buttons.spacing;
-    // let icon_spacing_top:i32 = configuration.settings.buttons.spacing;
     let button_width:i32 = configuration.settings.buttons.width;
     let button_height:i32 = configuration.settings.buttons.height;
-    // let window_always_ontop:bool = configuration.settings.window.always_ontop;
-    // let window_position:WindowPosition;
-    // let button_margin_default:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing_top, right: 0, bottom: 0 };
-    // let button_margin_last:ButtonMargins = ButtonMargins { left: icon_spacing, top: icon_spacing, right: icon_spacing, bottom: 0 };
-    // let header_title:String = String::from("Browsewith"); //format!("Browsewith v{}", env!("CARGO_PKG_VERSION"));
 
     let spacing:i32 = 5;
-
-    // let window_position = match configuration.settings.window.position.as_str() {
-    //   "none" => WindowPosition::None,
-    //   "mouse" => WindowPosition::Mouse,
-    //   _ => WindowPosition::Center
-    // };
 
     let window = ApplicationWindow::builder()
       .application(app)
       .title("BrowseWith")
       .default_width(button_width + icon_spacing * 2)
       .default_height(button_height)
-      // .window_position(window_position)
       .build();
     let grid = gtk::Grid::builder()
       .margin_start(spacing)
@@ -329,12 +309,10 @@ fn show_application_window(configuration:config::Configuration) {
       .row_spacing(spacing)
       .column_spacing(spacing)
       .build();
-    // let host_info = diplay_host_info(170*3*5);
 
     let mut button:gtk::Button;
     let mut row:i32 = 0;
     let mut col:i32 = 0;
-    // let mut i:i32 = 0;
     for browser in configuration.browsers_list.clone() {
       let value = app.clone();
 
