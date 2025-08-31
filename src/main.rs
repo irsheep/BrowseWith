@@ -131,6 +131,10 @@ async fn main() {
       let charset_policy:Option<config::CharsetPolicy>;
       let mut url_list:String = String::new();
       let mut valid_urls:Vec<String> = vec![];
+      let mut url_action_settings:UrlActionSettings = UrlActionSettings {
+        action: UrlAction::Allowed,
+        url: None
+      };
 
       // Read configuration and store settings in 'thread_local'
       configuration = config::get_configuration();
@@ -150,23 +154,20 @@ async fn main() {
               check_url(&u, x.utf16, config::CharsetList::Utf16) == config::CharsetPolicyAction::Block ||
               check_url(&u, x.utf32, config::CharsetList::Utf32) == config::CharsetPolicyAction::Block
             {
-              if gtk::init().is_err() {
-                println!("Failed to initialize GTK.");
-                exit(1);
-              };
-              show_block_dialog();
               valid_urls.push(u.to_string());
+              url_action_settings = UrlActionSettings {
+                action: UrlAction::Blocked,
+                url: None
+              };
             } else if
               check_url(&u, x.utf16, config::CharsetList::Utf16) == config::CharsetPolicyAction::Warn ||
               check_url(&u, x.utf32, config::CharsetList::Utf32) == config::CharsetPolicyAction::Warn
             {
-              if gtk::init().is_err() {
-                println!("Failed to initialize GTK.");
-                exit(1);
-              }
-              if show_warning_dialog(&u) {
-                valid_urls.push(u.to_string());
-              }
+              valid_urls.push(u.to_string());
+              url_action_settings = UrlActionSettings {
+                action: UrlAction::Warning,
+                url: Some(u.to_string())
+              };
             } else {
               // println!("{}:{} Saving url: {}", file!(), line!(), u);
               valid_urls.push(u.to_string());
@@ -185,10 +186,6 @@ async fn main() {
           None => { user_launch_urls.push(u.to_string()); }
         }
       });
-
-      if user_launch_urls.len() == 0 {
-        exit(0);
-      }
 
       URL.with( |v| { *v.borrow_mut() = user_launch_urls.join(",") });
 
@@ -227,7 +224,7 @@ async fn main() {
         return Some(());
       });
 
-      show_application_window(configuration);
+      show_application_window(configuration, url_action_settings);
       exit(0);
 
     },
@@ -241,6 +238,18 @@ async fn main() {
       exit(error_code);
     }
   }
+}
+
+#[derive(Clone)]
+enum UrlAction {
+  Allowed,
+  Warning,
+  Blocked
+}
+#[derive(Clone)]
+struct UrlActionSettings {
+  action: UrlAction,
+  url: Option<String>
 }
 
 #[cfg(target_family = "windows")]
@@ -264,11 +273,18 @@ fn send_return() {
   } ;
 }
 
-fn show_application_window(configuration:config::Configuration) {
+fn show_application_window(configuration:config::Configuration, url_action_settings:UrlActionSettings) {
   let application = Application::builder()
     .application_id("com.sheep.browsewith")
     .flags(ApplicationFlags::HANDLES_COMMAND_LINE)
   .build();
+
+  if gtk::init().is_err() {
+    println!("Failed to initialize GTK.");
+    exit(1);
+  }
+
+  let url_action_settings_clone = url_action_settings.clone();
 
   // Application ::command-line signal handler
   /* NOTE:
@@ -382,6 +398,17 @@ fn show_application_window(configuration:config::Configuration) {
 
     // Display main windows with all the components
     window.show();
+
+    match url_action_settings.action {
+      UrlAction::Blocked => {show_block_dialog(app);},
+      UrlAction::Warning => {
+        match &url_action_settings_clone.url {
+          Some(u) => {show_warning_dialog(app, &u);},
+          None => {}
+        }
+      },
+      _ => {}
+    };
 
   });
 
@@ -698,16 +725,9 @@ fn start_browser(browser_settings:config::BrowserSettings, url:&str, application
   }
 }
 
-fn show_block_dialog() -> bool {
-  println!("show_block_dialog");
-  let application = gtk::Application::builder()
-    .application_id("com.github.gtk-rs.examples.grid-packing")
-    .build();
-
-  application.run();
-
+fn show_block_dialog(application:&Application) -> bool {
   let release_dialog = MessageWindow {
-    callback_ok: Some(callback_exit),
+    callback_ok: Some(dialog_callback_exit),
     ..Default::default()
   };
 
@@ -721,17 +741,10 @@ fn show_block_dialog() -> bool {
   );
   return true;
 }
-fn show_warning_dialog(url:&str) -> bool {
-  println!("show_warning_dialog");
-  let application = gtk::Application::builder()
-    .application_id("com.github.gtk-rs.examples.grid-packing")
-    .build();
-
-  application.run();
-
+fn show_warning_dialog(application:&Application, url:&str) -> bool {
   let release_dialog = MessageWindow {
-    callback_yes: Some(callback_null),
-    callback_no: Some(callback_exit),
+    callback_yes: Some(dialog_callback_null),
+    callback_no: Some(dialog_callback_exit),
     ..Default::default()
   };
 
@@ -771,8 +784,8 @@ fn check_url(url:&str, action:config::CharsetPolicyAction, charset:config::Chars
   return config::CharsetPolicyAction::Allow;
 }
 
-fn callback_null() {}
-fn callback_exit() {
+fn dialog_callback_null() {}
+fn dialog_callback_exit() {
   println!("Aborting due to invalid characters in URL");
   exit(0);
 }
