@@ -39,8 +39,7 @@ mod config;
 mod webclient;
 mod setup;
 mod update;
-mod message_window;
-use crate::message_window::MessageWindow;
+
 // Windows specific modules
 #[cfg(target_family = "windows")] use std::fs::{ create_dir };
 #[cfg(target_family = "windows")] mod portable_executable;
@@ -399,17 +398,50 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
     // Display main windows with all the components
     window.show();
 
+    let app_clone = app.clone();
     match url_action_settings.action {
-      UrlAction::Blocked => {show_block_dialog(app);},
+      UrlAction::Blocked => {
+        let dialog = gtk::MessageDialog::builder()
+          .message_type(MessageType::Error)
+          .buttons(ButtonsType::Close)
+          .modal(true)
+          .transient_for(&window)
+          .title("Invalid URL")
+          .text("URL is blocked due to invalid characters")
+        .build();
+        dialog.show();
+        dialog.connect_response(move |obj, _| {
+          obj.close();
+          app_clone.quit();
+        });
+      },
       UrlAction::Warning => {
         match &url_action_settings_clone.url {
-          Some(u) => {show_warning_dialog(app, &u);},
+          Some(u) => {
+            let dialog = gtk::MessageDialog::builder()
+              .message_type(MessageType::Warning)
+              .buttons(ButtonsType::YesNo)
+              .modal(true)
+              .transient_for(&window)
+              .title("Invalid URL")
+              .text(format!("The URL '{}' might contain invalid characters\nAre you sure that you want to proceed?", u).as_str())
+            .build();
+            dialog.show();
+            dialog.connect_response(move |obj, response| {
+              match response {
+                gtk::ResponseType::No => {
+                  obj.close();
+                  app_clone.quit();
+                },
+                _ => { obj.close(); }
+              }
+            });
+          },
           None => {}
         }
       },
       _ => {}
     };
-
   });
 
   application.run();
@@ -698,41 +730,6 @@ fn start_browser(browser_settings:config::BrowserSettings, url:&str, application
   }
 }
 
-fn show_block_dialog(application:&Application) -> bool {
-  let release_dialog = MessageWindow {
-    callback_ok: Some(dialog_callback_exit),
-    ..Default::default()
-  };
-
-  release_dialog.show(
-    &application,
-    None,
-    "Invalid URL",
-    "URL is blocked due to invalid characters",
-    gtk::MessageType::Error,
-    gtk::ButtonsType::Ok
-  );
-  return true;
-}
-fn show_warning_dialog(application:&Application, url:&str) -> bool {
-  let release_dialog = MessageWindow {
-    callback_yes: Some(dialog_callback_null),
-    callback_no: Some(dialog_callback_exit),
-    ..Default::default()
-  };
-
-  release_dialog.show(
-    &application,
-    None,
-    "Invalid URL",
-    format!("The URL '{}' might contain invalid characters\nAre you sure that you want to proceed?", url).as_str(),
-    gtk::MessageType::Warning,
-    gtk::ButtonsType::YesNo
-  );
-
-  return true;
-}
-
 fn check_url(url:&str, action:config::CharsetPolicyAction, charset:config::CharsetList) -> config::CharsetPolicyAction {
   let mut test_url:String = url.to_string();
   let mut detected:config::CharsetList = config::CharsetList::Unknown;
@@ -755,10 +752,4 @@ fn check_url(url:&str, action:config::CharsetPolicyAction, charset:config::Chars
   }
 
   return config::CharsetPolicyAction::Allow;
-}
-
-fn dialog_callback_null() {}
-fn dialog_callback_exit() {
-  println!("Aborting due to invalid characters in URL");
-  exit(0);
 }
