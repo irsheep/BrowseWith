@@ -34,7 +34,7 @@ impl DosHeader {
   }
   #[allow(dead_code)]
   pub fn to_object(buffer:&mut BufReader<File>) -> Result<DosHeader, Error> {
-    let mut data = DosHeader::new();
+    let mut data:DosHeader = DosHeader::new();
 
     buffer.read_exact(&mut data.magic)?;
     buffer.read_exact(&mut data._null)?;
@@ -75,7 +75,7 @@ impl ELfanew {
   }
   #[allow(dead_code)]
   pub fn to_object(buffer:&mut BufReader<File>) -> Result<ELfanew, Error> {
-    let mut data = ELfanew::new();
+    let mut data:ELfanew = ELfanew::new();
     let mut file_header:FileHeader = FileHeader::new();
     let mut optional_header:OptionalHeader = OptionalHeader::new();
 

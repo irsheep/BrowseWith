@@ -232,8 +232,8 @@ fn check_installation() -> InstalledStatus {
   let system_icon:PathBuf;
   let user_icon:PathBuf;
   let config_file:PathBuf;
-  let system_dll_status;
-  let user_dll_status;
+  let system_dll_status:DllInstallStatus;
+  let user_dll_status:DllInstallStatus;
 
   system_executable = config::get_executable_file(true);
   system_icon = config::get_icon_file(true);
@@ -396,8 +396,8 @@ fn get_registered_application(association_level:ASSOCIATIONLEVEL) -> Result<[Str
 }
 
 unsafe fn read_to_string(ptr: PWSTR) -> String {
-  let mut len = 0usize;
-  let mut cursor = ptr;
+  let mut len:usize = 0usize;
+  let mut cursor:PWSTR = ptr;
   loop {
     let val = cursor.0.read();
     if val == 0 {

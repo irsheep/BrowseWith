@@ -1,5 +1,4 @@
 #![windows_subsystem = "windows"]
-// #![deny(unused_crate_dependencies)]
 
 use gtk::{
   prelude::*,
@@ -7,11 +6,7 @@ use gtk::{
   gio::{ ApplicationFlags },
   pango::{ EllipsizeMode }
 };
-// use gtk::builders::ImageBuilder;
-// use gtk::prelude::*;
-// use gtk::{glib, Application};
 
-// use glib::ControlFlow;
 use glib::clone;
 
 use std::process::{ Command, Stdio, exit };
@@ -45,19 +40,23 @@ mod update;
 #[cfg(target_family = "windows")] mod portable_executable;
 #[cfg(target_family = "windows")] extern crate base64;
 
-// #[derive(Clone, Copy)]
-// struct ButtonMargins {
-//   left: i32,
-//   top: i32,
-//   right: i32,
-//   bottom: i32
-// }
-
 thread_local!(
   static URL:RefCell<String> = RefCell::new(String::new());
   static ICON_SPACING:RefCell<i32> = RefCell::new(0);
   static GIT_RELEASE:RefCell<update::Releases> = RefCell::new(update::Releases::initialize());
 );
+
+#[derive(Clone)]
+enum UrlAction {
+  Allowed,
+  Warning,
+  Blocked
+}
+#[derive(Clone)]
+struct UrlActionSettings {
+  action: UrlAction,
+  url: Option<String>
+}
 
 #[tokio::main]
 async fn main() {
@@ -198,7 +197,7 @@ async fn main() {
         // Prevent from checking for updates if the last check was done recently
         match std::fs::metadata(&updates_check_file) {
           Ok(metadata) => {
-            let delta = std::time::Duration::from_secs(constants::UPDATES_CHECK_FILE_DELAY);
+            let delta:str::time::Duration = std::time::Duration::from_secs(constants::UPDATES_CHECK_FILE_DELAY);
             if metadata.modified().unwrap().elapsed().unwrap() <= delta {
               return Some(());
             } else {
@@ -219,13 +218,11 @@ async fn main() {
             }
           }
         }
-
         return Some(());
       });
 
       show_application_window(configuration, url_action_settings);
       exit(0);
-
     },
     0 => {
       #[cfg(target_family = "windows")] send_return();
@@ -239,21 +236,9 @@ async fn main() {
   }
 }
 
-#[derive(Clone)]
-enum UrlAction {
-  Allowed,
-  Warning,
-  Blocked
-}
-#[derive(Clone)]
-struct UrlActionSettings {
-  action: UrlAction,
-  url: Option<String>
-}
-
 #[cfg(target_family = "windows")]
 fn send_return() {
-  let mut input_u: INPUT_u = unsafe { std::mem::zeroed() };
+  let mut input_u:INPUT_u = unsafe { std::mem::zeroed() };
   unsafe {
     *input_u.ki_mut() = KEYBDINPUT {
       wVk: VK_RETURN as u16,
@@ -263,7 +248,7 @@ fn send_return() {
       dwExtraInfo: 0
     };
 
-    let mut input = INPUT {
+    let mut input:INPUT_u = INPUT {
       type_: INPUT_KEYBOARD,
       u: input_u
     };
@@ -273,7 +258,7 @@ fn send_return() {
 }
 
 fn show_application_window(configuration:config::Configuration, url_action_settings:UrlActionSettings) {
-  let application = Application::builder()
+  let application:Application = Application::builder()
     .application_id("com.sheep.browsewith")
     .flags(ApplicationFlags::HANDLES_COMMAND_LINE)
   .build();
@@ -283,7 +268,7 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
     exit(1);
   }
 
-  let url_action_settings_clone = url_action_settings.clone();
+  let url_action_settings_clone:UrlActionSettings = url_action_settings.clone();
 
   // Application ::command-line signal handler
   /* NOTE:
@@ -308,13 +293,13 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
 
     let spacing:i32 = 5;
 
-    let window = ApplicationWindow::builder()
+    let window:ApplicationWindow = ApplicationWindow::builder()
       .application(app)
       .title("BrowseWith")
       .default_width(button_width + icon_spacing * 2)
       .default_height(button_height)
       .build();
-    let grid = gtk::Grid::builder()
+    let grid:gtk::Grid = gtk::Grid::builder()
       .margin_start(spacing)
       .margin_end(spacing)
       .margin_top(spacing)
@@ -329,7 +314,7 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
     let mut row:i32 = 0;
     let mut col:i32 = 0;
     for browser in configuration.browsers_list.clone() {
-      let value = app.clone();
+      let value:Application = app.clone();
 
       button = button_with_image(&browser.title, &browser.icon);
       button.connect_clicked(move |_| {button_clicked(&value, &browser.clone())});
@@ -354,9 +339,7 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
     #[cfg(target_family = "unix")] {
       // Build a title bar
       header_bar = HeaderBar::builder()
-        // .title(header_title.as_str())
         .decoration_layout("menu:close")
-        // .show_close_button(true)
         .build();
     }
     #[cfg(target_family = "windows")] {
@@ -389,7 +372,6 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
     }
 
     // Traits from GtkWindowExt
-    // window.set_keep_above(window_always_ontop);
     window.set_resizable(false);
     window.set_titlebar(Some(&header_bar));
 
@@ -398,10 +380,10 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
     // Display main windows with all the components
     window.show();
 
-    let app_clone = app.clone();
+    let app_clone:Application = app.clone();
     match url_action_settings.action {
       UrlAction::Blocked => {
-        let dialog = gtk::MessageDialog::builder()
+        let dialog:gtk::MessageDialog = gtk::MessageDialog::builder()
           .message_type(MessageType::Error)
           .buttons(ButtonsType::Close)
           .modal(true)
@@ -418,7 +400,7 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
       UrlAction::Warning => {
         match &url_action_settings_clone.url {
           Some(u) => {
-            let dialog = gtk::MessageDialog::builder()
+            let dialog:gtk::MessageDialog = gtk::MessageDialog::builder()
               .message_type(MessageType::Warning)
               .buttons(ButtonsType::YesNo)
               .modal(true)
@@ -456,7 +438,6 @@ fn button_with_image(message:&str, image_file:&str) -> gtk::Button {
   let width:i32 = 180;
   let height:i32 = 70;
   let spacing:i32 = 5;
-  // let image_size:i32 = 32;
 
   // Build the button elements
   button = gtk::Button::builder()
@@ -488,7 +469,6 @@ fn button_clicked<'a>(application:&Application, browser_settings:&'a config::Bro
   let mut url_list:String = String::new();
   URL.with(|v| {url_list = v.borrow().to_string();});
   url_list.split(",").for_each( |u| {
-    // println!("{}:{} button_clicked url: {}", file!(), line!(), &u);
     start_browser(browser_settings.clone(), &u, Some(application));
   });
 }
@@ -570,7 +550,7 @@ fn diplay_host_info(window:&ApplicationWindow, max_width:i32) -> Box {
   box_object.append(&label_url);
   box_object.append(&button);
 
-  let window_clone = window.clone();
+  let window_clone:ApplicationWindow = window.clone();
 
   button.connect_clicked(move |_| {
 
@@ -587,7 +567,7 @@ fn diplay_host_info(window:&ApplicationWindow, max_width:i32) -> Box {
         env!("CARGO_PKG_VERSION"),
         git_release.version
       ).as_str())
-    .build();
+      .build();
 
     let label_url_clone = label_url.clone();
     release_dialog.show();
@@ -595,7 +575,7 @@ fn diplay_host_info(window:&ApplicationWindow, max_width:i32) -> Box {
     release_dialog.connect_response(move |obj, response| {
       match response {
         gtk::ResponseType::Yes => {
-          let html_url_clone = git_release.html_url.clone();
+          let html_url_clone:String = git_release.html_url.clone();
           label_url_clone.set_label(format!("Url: {}", git_release.html_url).as_str());
           URL.with(|v| {*v.borrow_mut() = html_url_clone});
         },
@@ -609,7 +589,7 @@ fn diplay_host_info(window:&ApplicationWindow, max_width:i32) -> Box {
   // Start a thread to check for updates
   #[allow(deprecated)] // warning: use of deprecated macro `clone`: Using old-style clone! syntax
   glib::source::timeout_add_local(std::time::Duration::new(1, 0), clone!(@strong button as btn_widget => move || {
-    let mut updates_check_file = config::get_config_dir();
+    let mut updates_check_file:PathBuf = config::get_config_dir();
     updates_check_file.push(constants::UPDATES_CHECK_FILENAME);
     match std::fs::metadata(&updates_check_file) {
       Ok(_) => { },
@@ -655,7 +635,7 @@ fn get_icon_image(file_path:&String) -> Image {
     let source:String;
     let index:usize;
 
-    let mut b64_file_path = String::new();
+    let mut b64_file_path:String = String::new();
     general_purpose::STANDARD.encode_string(file_path, &mut b64_file_path);
 
     if file_path.contains(".exe") {

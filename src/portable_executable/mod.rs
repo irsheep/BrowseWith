@@ -19,7 +19,7 @@ thread_local!{
 
 pub fn get_icon(file_path:&str, icon_index:usize, size:Option<i32>) -> Vec<u8> {
 
-  let mut buf_reader = BufReader::new(File::open(file_path).unwrap());
+  let mut buf_reader:BufReader = BufReader::new(File::open(file_path).unwrap());
 
   let mut dos_header:DosHeader = DosHeader::new();
   let mut e_lfanew:ELfanew = ELfanew::new();
@@ -129,7 +129,7 @@ fn icon_size_from_data(icon_group:&Vec<u8>, icon_resource_directories:&Vec<Vec<u
     index = index + 1;
   }
 
-  let entry = &icon_dir.icon_entries[best_icon];
+  let entry:IconDirEntry = &icon_dir.icon_entries[best_icon];
   raw_icon.write(&entry.width).unwrap();
   raw_icon.write(&entry.height).unwrap();
   raw_icon.write(&[0; 2]).unwrap(); // Colors and reserved
@@ -193,7 +193,7 @@ fn get_resource_directoryentry_data(resource_data_directory:&ResourceDataDirecto
 }
 
 fn get_resource_dataentry_data(buffer:&mut BufReader<File>, resource_data_entry:ResourceDataEntry) -> Result<Vec<u8>, Error> {
-  let mut bytes = vec![0; resource_data_entry.size.as_u64() as usize];
+  let mut bytes:Vec<u8> = vec![0; resource_data_entry.size.as_u64() as usize];
   let physical_address:u64 = rva_to_pa(resource_data_entry.offset_to_data.as_u64());
 
   buffer.seek(SeekFrom::Start(physical_address))?;

@@ -161,7 +161,7 @@ impl Releases {
     let current_version = Version::from(&cargo_version).unwrap();
 
     let latest_version = Version::from(&release.tag_name).unwrap();
-    let mut platform_download_urls: Vec<PlatformDownloadUrl> = vec![];
+    let mut platform_download_urls:Vec<PlatformDownloadUrl> = vec![];
 
     match current_version.compare(latest_version) {
       // Current version is lesser than latest Git release

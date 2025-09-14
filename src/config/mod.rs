@@ -220,7 +220,7 @@ fn save_configuration(file_path:&PathBuf, data:&Configuration) {
 pub fn upgrade_configuration(mut data:Configuration) -> Configuration {
   let config_file_buf:PathBuf = get_config_file();
   let default_settings:Configuration = get_default_settings();
-  let mut config_upgraded = false;
+  let mut config_upgraded:bool = false;
 
   match data.settings.charset_policy {
     Some(_) => { },
@@ -284,7 +284,7 @@ pub fn get_lib_path(is_admin:bool) -> PathBuf {
 }
 
 pub fn auto_launch_browser(url: String, browser_settings: Vec<BrowserSettings>) -> Option<BrowserSettings> {
-  let mut re;
+  let mut re:Regex;
   for browser in browser_settings {
     match browser.auto_launch {
       Some(ref auto_launch_url) => {

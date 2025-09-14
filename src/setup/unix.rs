@@ -212,8 +212,8 @@ fn get_default_applications() -> DefaultApplications {
 }
 
 fn change_default_app(application_type: DefaultApplicationType) {
-  let mut cmd: Command;
-  let result: Result<Output, Error>;
+  let mut cmd:Command;
+  let result:Result<Output, Error>;
   let args:Vec<&str>;
 
   cmd = Command::new(config::OS_CONFIG_TOOL);
