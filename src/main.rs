@@ -197,7 +197,7 @@ async fn main() {
         // Prevent from checking for updates if the last check was done recently
         match std::fs::metadata(&updates_check_file) {
           Ok(metadata) => {
-            let delta:str::time::Duration = std::time::Duration::from_secs(constants::UPDATES_CHECK_FILE_DELAY);
+            let delta:std::time::Duration = std::time::Duration::from_secs(constants::UPDATES_CHECK_FILE_DELAY);
             if metadata.modified().unwrap().elapsed().unwrap() <= delta {
               return Some(());
             } else {
