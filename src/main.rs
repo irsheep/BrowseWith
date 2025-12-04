@@ -15,8 +15,8 @@ use std::path::{ PathBuf, Path };
 
 #[cfg(target_os = "windows")]
 use winapi::um::{
-  wincon::{ FreeConsole, AttachConsole, ATTACH_PARENT_PROCESS },
-  winuser::{ SendInput, INPUT, KEYBDINPUT, INPUT_u, INPUT_KEYBOARD, VK_RETURN }
+  wincon::{ AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS },
+  winuser::{ INPUT_u, KEYBDINPUT, VK_RETURN, INPUT_KEYBOARD, SendInput, INPUT }
 };
 
 #[cfg(target_family = "windows")]
@@ -225,37 +225,37 @@ async fn main() {
       exit(0);
     },
     0 => {
-      // #[cfg(target_family = "windows")] send_return();
+      #[cfg(target_family = "windows")] send_return();
       exit(0);
     },
     _ => {
       println!("{}", help_message);
-      // #[cfg(target_family = "windows")] send_return();
+      #[cfg(target_family = "windows")] send_return();
       exit(error_code);
     }
   }
 }
 
-// #[cfg(target_family = "windows")]
-// fn send_return() {
-//   let mut input_u:INPUT_u = unsafe { std::mem::zeroed() };
-//   unsafe {
-//     *input_u.ki_mut() = KEYBDINPUT {
-//       wVk: VK_RETURN as u16,
-//       wScan: 0,
-//       dwFlags: 0,
-//       time: 0,
-//       dwExtraInfo: 0
-//     };
+#[cfg(target_family = "windows")]
+fn send_return() {
+  let mut input_u:INPUT_u = unsafe { std::mem::zeroed() };
+  unsafe {
+    *input_u.ki_mut() = KEYBDINPUT {
+      wVk: VK_RETURN as u16,
+      wScan: 0,
+      dwFlags: 0,
+      time: 0,
+      dwExtraInfo: 0
+    };
 
-//     let mut input:INPUT_u = INPUT {
-//       type_: INPUT_KEYBOARD,
-//       u: input_u
-//     };
-//     FreeConsole();
-//     SendInput(1, &mut input, std::mem::size_of::<INPUT>() as i32);
-//   } ;
-// }
+    let mut input:INPUT = INPUT {
+      type_: INPUT_KEYBOARD,
+      u: input_u
+    };
+    FreeConsole();
+    SendInput(1, &mut input, std::mem::size_of::<INPUT>() as i32);
+  } ;
+}
 
 fn show_application_window(configuration:config::Configuration, url_action_settings:UrlActionSettings) {
   let application:Application = Application::builder()
@@ -346,11 +346,9 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
       let app_clone:Application;
       let close_box:Box;
       let close_button:Button;
-      let close_image:Image;
       let mut icon_file:PathBuf;
 
       header_bar = HeaderBar::builder()
-        // .title(header_title.as_str())
         .build();
 
       icon_file = config::get_icon_path(true);
@@ -359,16 +357,11 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
       }
       icon_file.push(config::BW_ICON_CLOSE);
 
-      close_image = Image::from_file(icon_file);
       app_clone = app.clone();
       close_box = Box::new(Orientation::Horizontal, 1);
       close_button = Button::builder()
-        // .image(&close_image)
-        // .border_width(0)
-        // .relief(gtk::ReliefStyle::None)
         .build();
       close_button.connect_clicked(move |_| {close_app(&app_clone);});
-      // close_box.add(&close_button);
       header_bar.pack_end(&close_box);
     }
 

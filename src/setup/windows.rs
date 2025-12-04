@@ -3,15 +3,13 @@ use std::path::{ PathBuf };
 use std::fs::{ write, create_dir_all, copy };
 use std::process::{ exit };
 use std::io::{ Error as IoError };
-use std::ffi::CString;
 use std::convert::TryInto;
 
 use core::slice::Iter;
 
 use gtk::glib::{ Bytes };
-use gtk::gdk_pixbuf::{ Pixbuf };
 
-use windows::core::{ Error, PWSTR, PSTR };
+use windows::core::{ Error, PWSTR };
 use windows::Win32::UI::Shell::{ AT_URLPROTOCOL, AL_MACHINE, AL_EFFECTIVE, SHCNE_ASSOCCHANGED, SHCNF_DWORD, SHCNF_FLUSH };
 use windows::Win32::UI::Shell::{ IApplicationAssociationRegistration, ApplicationAssociationRegistration, ASSOCIATIONLEVEL, SHChangeNotify };
 use windows::Win32::System::Com::{ CLSCTX_ALL };
@@ -37,7 +35,6 @@ use crate::config;
 #[allow(dead_code)]
 pub trait PxStr {
   fn as_pwstr(&self) -> PWSTR;
-  fn as_pstr(&self) -> PSTR;
 }
 
 impl PxStr for str {
@@ -46,20 +43,11 @@ impl PxStr for str {
     vec = self.encode_utf16().collect();
     return PWSTR(vec.as_mut_ptr());
   }
-
-  fn as_pstr(&self) -> PSTR {
-    let cstr = CString::new(self);
-    let parameter = cstr.unwrap().into_bytes().into_boxed_slice().as_mut_ptr() as *mut u8;
-    return PSTR(parameter);
-  }
 }
 
 impl PxStr for *mut u16 {
   fn as_pwstr(&self) -> PWSTR {
     return PWSTR(self.clone());
-  }
-  fn as_pstr(&self) -> PSTR {
-    return PSTR(core::ptr::null_mut());
   }
 }
 //endregion
@@ -205,24 +193,6 @@ pub fn is_privileged_user() -> bool {
   return is_elevated();
 }
 
-pub fn load_icon() {
-  let mut icon_file:PathBuf;
-  let icon_pixbuf:Pixbuf;
-
-  // Get the icon file, preferring the icon in 'Program Files'
-  icon_file = config::get_icon_file(true);
-  if !icon_file.is_file() {
-    icon_file = config::get_icon_file(false);
-  }
-
-  // Set the application Icon if browsewith.ico is found.
-  if icon_file.is_file() {
-    // Assign the icon to the main window
-    icon_pixbuf = Pixbuf::from_file(icon_file).unwrap();
-    // gtk::Window::set_default_icon(&icon_pixbuf);
-  }
-}
-
 fn check_installation() -> InstalledStatus {
   let mut status:InstalledStatus = InstalledStatus::empty();
   let system_executable:PathBuf;
@@ -359,7 +329,6 @@ fn get_registered_application(association_level:ASSOCIATIONLEVEL) -> Result<[Str
 
     // Get associated application for HTTP protocol
     browser_association = Err(application_association.QueryCurrentDefault(
-      // PWSTR(http.as_mut_ptr()),
       http.as_pwstr(),
       AT_URLPROTOCOL,
       association_level,

@@ -39,7 +39,4 @@ pub fn list_default_applications() {
 pub fn load_icon() {
   #[cfg(target_family = "unix")]
   unix::load_icon();
-
-  #[cfg(target_family = "windows")]
-  windows::load_icon();
 }
