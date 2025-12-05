@@ -374,6 +374,47 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
     // Display main windows with all the components
     window.show();
 
+    // Center the window on screen and set it as always on top.
+    #[cfg(target_family = "windows")] {
+      unsafe {
+        let mut display_settings:winapi::um::wingdi::DEVMODEA = std::mem::zeroed();
+        let mut window_size:winapi::shared::windef::RECT = std::mem::zeroed();
+        let x:winapi::ctypes::c_int;
+        let y:winapi::ctypes::c_int;
+
+        // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumdisplaysettingsa
+        // https://docs.rs/winapi/latest/i686-pc-windows-msvc/winapi/um/winuser/fn.EnumDisplaySettingsA.html
+        winapi::um::winuser::EnumDisplaySettingsA(
+          std::ptr::null(),
+          winapi::um::winuser::ENUM_CURRENT_SETTINGS,
+          &mut display_settings as *mut winapi::um::wingdi::DEVMODEA
+        );
+
+        // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-findwindowa
+        // https://docs.rs/winapi/latest/i686-pc-windows-msvc/winapi/um/winuser/fn.FindWindowA.html
+        let handle:winapi::shared::windef::HWND = winapi::um::winuser::FindWindowA(
+          std::ptr::null(),
+          CString::new("BrowseWith").unwrap().as_ptr() as *const i8
+        );
+
+        // Get the dimensions to the BrowseWith window
+        // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowrect
+        // https://docs.rs/winapi/latest/i686-pc-windows-msvc/winapi/um/winuser/fn.GetWindowRect.html
+        winapi::um::winuser::GetWindowRect(
+          handle,
+          &mut window_size as *mut winapi::shared::windef::RECT
+        );
+
+        // Center the window on the screen display/2 - window/2
+        x = (display_settings.dmPelsWidth as i32 / 2 ) - ( window_size.right - window_size.left ) / 2;
+        y = (display_settings.dmPelsHeight as i32 / 2 ) - ( window_size.bottom - window_size.top ) / 2;
+
+        // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
+        // https://docs.rs/winapi/latest/i686-pc-windows-msvc/winapi/um/winuser/fn.SetWindowPos.html
+        winapi::um::winuser::SetWindowPos(handle, winapi::um::winuser::HWND_TOPMOST, x, y, 0, 0, winapi::um::winuser::SWP_SHOWWINDOW);
+      }
+    }
+
     let app_clone:Application = app.clone();
     match url_action_settings.action {
       UrlAction::Blocked => {
@@ -422,7 +463,7 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
 
   application.run();
 }
-
+use std::ffi::CString;
 fn button_with_image(message:&str, image_file:&str) -> gtk::Button {
   let button:gtk::Button;
   let child:gtk::Box;
