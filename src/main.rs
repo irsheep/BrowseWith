@@ -25,8 +25,11 @@ use base64::{
   engine::{ general_purpose }
 };
 
-#[allow(unused_imports)]
-use std::{ file, line };
+#[cfg(target_family = "windows")]
+use std::{
+  fs::{ create_dir },
+  ffi::CString
+};
 
 // Add application modules
 mod constants;
@@ -36,7 +39,6 @@ mod setup;
 mod update;
 
 // Windows specific modules
-#[cfg(target_family = "windows")] use std::fs::{ create_dir };
 #[cfg(target_family = "windows")] mod portable_executable;
 #[cfg(target_family = "windows")] extern crate base64;
 
@@ -463,7 +465,7 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
 
   application.run();
 }
-use std::ffi::CString;
+
 fn button_with_image(message:&str, image_file:&str) -> gtk::Button {
   let button:gtk::Button;
   let child:gtk::Box;
