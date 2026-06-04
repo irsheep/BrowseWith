@@ -4,16 +4,16 @@ RELEASE=$2
 
 case "${TARGET}" in
   "freebsd")
-    # :/tmp/pkg-config-0.29.2/check/gtk
-    BUILD_TARGET="x86_64-unknown-freebsd"
+    export BUILD_TARGET="x86_64-unknown-freebsd"
     export PKG_CONFIG_PATH="/usr/local/libdata/pkgconfig:/usr/libdata/pkgconfig"
     export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS="1"
     ;;
   "linux")
-    BUILD_TARGET="x86_64-unknown-linux-gnu"
+    export BUILD_TARGET="x86_64-unknown-linux-gnu"
+    export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig"
     ;;
   "windows")
-    BUILD_TARGET="x86_64-pc-windows-gnu"
+    export BUILD_TARGET="x86_64-pc-windows-gnu"
     ;;
   *)
     echo "Valid targets are freebsd, linux or windows"
@@ -31,5 +31,3 @@ else
   rustup override set nightly
   RUSTFLAGS="-Zmacro-backtrace" cargo build --target ${BUILD_TARGET} ${RELEASE}
 fi
-
-# /root/.rustup/toolchains/stable-x86_64-unknown-freebsd/bin/

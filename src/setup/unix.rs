@@ -329,15 +329,15 @@ fn save_icon() {
 fn save_icons() {
   let is_admin:bool;
   let icon_raw:&[u8];
-  let dlls_file:String;
+  let icons_list:String;
   let mut lines:std::str::Lines<>;
   let icons_path:PathBuf;
   let mut src_file:PathBuf;
   let mut dst_file:PathBuf;
 
   icon_raw = include_bytes!("../../resources/icons.txt");
-  dlls_file = String::from_utf8_lossy(icon_raw).to_string();
-  lines = dlls_file.lines();
+  icons_list = String::from_utf8_lossy(icon_raw).to_string();
+  lines = icons_list.lines();
 
   is_admin = is_privileged_user();
   icons_path = config::get_icon_path(is_admin);
@@ -354,7 +354,13 @@ fn save_icons() {
         dst_file = icons_path.clone();
         dst_file.push(line);
         // println!("src:{} dst:{}", src_file.display(), dst_file.display());
-        copy(src_file.as_path(), dst_file.as_path()).unwrap();
+        match copy(src_file.as_path(), dst_file.as_path()) {
+          Ok(_) => {},
+          Err(_) => {
+            println!("Failed to copy icons, verify that you have the full install package.");
+            break;
+          }
+        };
       },
       None => {
         break;

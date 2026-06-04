@@ -263,7 +263,7 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
   let application:Application = Application::builder()
     .application_id("com.sheep.browsewith")
     .flags(ApplicationFlags::HANDLES_COMMAND_LINE)
-  .build();
+    .build();
 
   if gtk::init().is_err() {
     println!("Failed to initialize GTK.");
@@ -301,6 +301,7 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
       .default_width(button_width + icon_spacing * 2)
       .default_height(button_height)
       .build();
+
     let grid:gtk::Grid = gtk::Grid::builder()
       .margin_start(spacing)
       .margin_end(spacing)
@@ -337,21 +338,15 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
     }
 
     window.set_child(Some(&grid));
+    header_bar = HeaderBar::builder()
+      .decoration_layout("menu:close")
+      .build();
 
-    #[cfg(target_family = "unix")] {
-      // Build a title bar
-      header_bar = HeaderBar::builder()
-        .decoration_layout("menu:close")
-        .build();
-    }
     #[cfg(target_family = "windows")] {
       let app_clone:Application;
       let close_box:Box;
       let close_button:Button;
       let mut icon_file:PathBuf;
-
-      header_bar = HeaderBar::builder()
-        .build();
 
       icon_file = config::get_icon_path(true);
       if !icon_file.is_dir() {
@@ -427,7 +422,7 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
           .transient_for(&window)
           .title("Invalid URL")
           .text("URL is blocked due to invalid characters")
-        .build();
+          .build();
         dialog.show();
         dialog.connect_response(move |obj, _| {
           obj.close();
@@ -444,7 +439,7 @@ fn show_application_window(configuration:config::Configuration, url_action_setti
               .transient_for(&window)
               .title("Invalid URL")
               .text(format!("The URL '{}' might contain invalid characters\nAre you sure that you want to proceed?", u).as_str())
-            .build();
+              .build();
             dialog.show();
             dialog.connect_response(move |obj, response| {
               match response {

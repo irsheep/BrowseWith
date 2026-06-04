@@ -20,6 +20,17 @@ bin\libgmodule-2.0-0.dll
 bin\libgobject-2.0-0.dll
 bin\libgraphene-1.0-0.dll
 bin\libgraphite2.dll
+bin\libgstallocators-1.0-0.dll
+bin\libgstaudio-1.0-0.dll
+bin\libgstbase-1.0-0.dll
+bin\libgstd3d12-1.0-0.dll
+bin\libgstd3dshader-1.0-0.dll
+bin\libgstgl-1.0-0.dll
+bin\libgstpbutils-1.0-0.dll
+bin\libgstplay-1.0-0.dll
+bin\libgstreamer-1.0-0.dll
+bin\libgsttag-1.0-0.dll
+bin\libgstvideo-1.0-0.dll
 bin\libgtk-4-1.dll
 bin\libharfbuzz-0.dll
 bin\libharfbuzz-subset-0.dll
@@ -30,6 +41,7 @@ bin\libjpeg-8.dll
 bin\libLerc.dll
 bin\liblzma-5.dll
 bin\liblzo2-2.dll
+bin\liborc-0.4-0.dll
 bin\libpango-1.0-0.dll
 bin\libpangocairo-1.0-0.dll
 bin\libpangoft2-1.0-0.dll

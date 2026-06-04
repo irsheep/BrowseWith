@@ -28,8 +28,7 @@ version-compare = "0.2"
 
 [dependencies.gtk]
 package = "gtk4"
-version = "0.10.3"
-features = ["v4_2"]
+version = "0.11.3"
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.29", features = [ "user"] }
