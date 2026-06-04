@@ -16,7 +16,7 @@ BrowseWith is an application which allows the user to select a web browser befor
 BrowseWith is written in Rust and cross-compiled to run on different operative systems. Check below for your, operative system requirements.
 
 ### Linux/BSD
-- GTK v3
+- GTK v4
 - [xdg-utils](https://www.freedesktop.org/wiki/Software/xdg-utils/)
 
 ### Windows
