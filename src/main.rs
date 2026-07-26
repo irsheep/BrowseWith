@@ -619,8 +619,7 @@ fn diplay_host_info(window:&ApplicationWindow, max_width:i32) -> Box {
   });
 
   // Start a thread to check for updates
-  #[allow(deprecated)] // warning: use of deprecated macro `clone`: Using old-style clone! syntax
-  glib::source::timeout_add_local(std::time::Duration::new(1, 0), clone!(@strong button as btn_widget => move || {
+  glib::source::timeout_add_local(std::time::Duration::new(1, 0), move || {
     let mut updates_check_file:PathBuf = config::get_config_dir();
     updates_check_file.push(constants::UPDATES_CHECK_FILENAME);
     match std::fs::metadata(&updates_check_file) {
@@ -638,18 +637,18 @@ fn diplay_host_info(window:&ApplicationWindow, max_width:i32) -> Box {
       update_message = "No update is available".to_string();
     } else if git_release.is_newer {
       update_message = format!("New version available\n{}", git_release.version);
-      btn_widget.set_sensitive(true);
+      button.set_sensitive(true);
       GIT_RELEASE.with(|v| { *v.borrow_mut() = git_release});
     }
 
     // println!("{}:{} update_message: '{}'", file!(), line!(), update_message);
     if update_message != String::new() {
-      btn_widget.set_tooltip_text(Some(format!("Version: v{}\n{}", env!("CARGO_PKG_VERSION"), update_message.as_str()).as_str()));
+      button.set_tooltip_text(Some(format!("Version: v{}\n{}", env!("CARGO_PKG_VERSION"), update_message.as_str()).as_str()));
       glib_continue = glib::ControlFlow::Break;
     }
 
     return glib_continue;
-  }));
+  });
 
   return box_object;
 }
